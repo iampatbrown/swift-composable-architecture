@@ -4,7 +4,6 @@ import SwiftUI
 struct AppState: Equatable {
   var newScrum: EditState?
   var scrums: IdentifiedArrayOf<Scrum> = []
-  var selection: Identified<Scrum.ID, Scrum>?
 }
 
 enum AppAction {
@@ -12,10 +11,9 @@ enum AppAction {
   case newScrum(EditAction)
   case onLaunch
   case scenePhaseChanged(ScenePhase)
-  case scrum(ScrumAction)
+  case scrum(id: Scrum.ID, action: ScrumAction)
   case scrumsLoaded(Result<[Scrum], Error>)
   case setIsAddingScrum(Bool)
-  case setNavigation(selection: Scrum.ID?)
 }
 
 struct AppEnvironment {
@@ -28,20 +26,17 @@ struct AppEnvironment {
 }
 
 let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
-  scrumReducer
-    .pullback(state: \Identified.value, action: .self, environment: { $0 })
-    .optional()
-    .pullback(
-      state: \AppState.selection,
-      action: /AppAction.scrum,
-      environment: {
-        ScrumEnvironment(
-          audioPlayerClient: $0.audioPlayerClient,
-          mainQueue: $0.mainQueue,
-          speechClient: $0.speechClient
-        )
-      }
-    ),
+  scrumReducer.forEach(
+    state: \AppState.scrums,
+    action: /AppAction.scrum(id:action:),
+    environment: {
+      ScrumEnvironment(
+        audioPlayerClient: $0.audioPlayerClient,
+        mainQueue: $0.mainQueue,
+        speechClient: $0.speechClient
+      )
+    }
+  ),
 
   editReducer
     .optional()
@@ -80,16 +75,6 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
         return .none
       }
 
-    case .scrum(.applyChanges):
-      guard let selection = state.selection else { return .none }
-      state.scrums[id: selection.id] = selection.value
-      return .none
-
-    case .scrum(.saveMeeting):
-      guard let selection = state.selection else { return .none }
-      state.scrums[id: selection.id]?.history = selection.value.history
-      return .none
-
     case .scrum:
       return .none
 
@@ -110,15 +95,6 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
     case .setIsAddingScrum(false):
       state.newScrum = nil
       return .none
-
-    case let .setNavigation(selection: .some(id)):
-      guard let scrum = state.scrums[id: id] else { return .none }
-      state.selection = Identified(scrum, id: id)
-      return .none
-
-    case .setNavigation(selection: .none):
-      state.selection = nil
-      return .none
     }
   }
 )
@@ -131,36 +107,26 @@ struct AppView: View {
   struct ViewState: Equatable {
     let isAddingScrum: Bool
     let scrums: IdentifiedArrayOf<Scrum>
-    let selectionId: Scrum.ID?
 
     init(state: AppState) {
       self.isAddingScrum = state.newScrum != nil
       self.scrums = state.scrums
-      self.selectionId = state.selection?.id
     }
   }
 
   var body: some View {
     WithViewStore(self.store.scope(state: ViewState.init)) { viewStore in
       List {
-        ForEach(viewStore.scrums) { scrum in
-          NavigationLink(
-            destination: IfLetStore(
-              self.store.scope(
-                state: \AppState.selection?.value,
-                action: AppAction.scrum
-              ),
-              then: ScrumView.init(store:)
-            ),
-            tag: scrum.id,
-            selection: viewStore.binding(
-              get: \.selectionId,
-              send: AppAction.setNavigation(selection:)
-            )
-          ) {
-            CardView(scrum: scrum)
+        ForEachStore(
+          self.store.scope(state: \AppState.scrums, action: AppAction.scrum(id:action:))
+        ) { childStore in
+          WithViewStore(childStore) { childViewStore in
+            NavigationLink(
+              destination: ScrumView(store: childStore)
+            ) {
+              CardView(scrum: childViewStore.state)
+            }.listRowBackground(childViewStore.color)
           }
-          .listRowBackground(scrum.color)
         }
       }
       .navigationTitle("Daily Scrums")
