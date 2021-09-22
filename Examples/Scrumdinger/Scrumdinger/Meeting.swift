@@ -6,6 +6,7 @@ struct Meeting: Equatable {
   var activeSpeakerIndex: Int = 0
   var scrumColor: Color = .orange
   var isRecording = false
+  var isTimerActive: Bool = false
   var lengthInMinutes: Int = 5
   var secondsElapsedForSpeaker: Int = 0
   var speakers: [Speaker] = []
@@ -53,12 +54,14 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
   }
 
   func startTimer() -> Effect<MeetingAction, Never> {
-    Effect.timer(id: TimerId(), every: 1, tolerance: .zero, on: environment.mainQueue)
+    state.isTimerActive = true
+    return Effect.timer(id: TimerId(), every: 1, tolerance: .zero, on: environment.mainQueue)
       .map { _ in MeetingAction.timerTicked }
   }
 
   func finishMeeting() -> Effect<MeetingAction, Never> {
     state.isRecording = false
+    state.isTimerActive = false
     return .merge(
       environment.speechClient.finishTask().fireAndForget(),
       Effect.cancel(id: TimerId())
@@ -147,18 +150,23 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
 struct MeetingView: View {
   let store: Store<Meeting, MeetingAction>
 
+  struct ViewState: Equatable {
+    let scrumColor: Color
+
+    init(state: Meeting) {
+      self.scrumColor = state.scrumColor
+    }
+  }
+
   var body: some View {
-    WithViewStore(self.store) { viewStore in
+    WithViewStore(self.store.scope(state: ViewState.init)) { viewStore in
       ZStack {
         RoundedRectangle(cornerRadius: 16.0)
           .fill(viewStore.scrumColor)
         VStack {
-          MeetingHeaderView(state: viewStore.state)
-          MeetingTimerView(state: viewStore.state)
-          MeetingFooterView(
-            speakers: viewStore.speakers,
-            skipAction: { viewStore.send(.skipSpeaker) }
-          )
+          MeetingHeaderView(store: self.store)
+          MeetingTimerView(store: self.store)
+          MeetingFooterView(store: self.store)
         }
       }
       .padding()

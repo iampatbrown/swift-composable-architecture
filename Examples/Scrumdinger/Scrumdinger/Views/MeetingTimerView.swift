@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import SwiftUI
 
 struct SpeakerArc: Shape {
@@ -35,63 +36,57 @@ struct SpeakerArc: Shape {
 }
 
 struct MeetingTimerView: View {
-  let speakers: [Meeting.Speaker]
-  let isRecording: Bool
-  let scrumColor: Color
-  let secondsElapsed: Int
-  let lengthInSeconds: Int
+  let store: Store<Meeting, MeetingAction>
 
-  init(state: Meeting) {
-    self.speakers = state.speakers
-    self.isRecording = state.isRecording
-    self.scrumColor = state.scrumColor
-    self.secondsElapsed = state.secondsElapsed
-    self.lengthInSeconds = state.lengthInSeconds
+  struct ViewState: Equatable {
+    let currentSpeaker: String
+    let isRecording: Bool
+    let scrumColor: Color
+    let speakers: [Meeting.Speaker]
+    let timerTrim: Double
+
+    init(state: Meeting) {
+      self.currentSpeaker = state.speakers.first(where: { !$0.isCompleted })?.name ?? "Someone"
+      self.isRecording = state.isRecording
+      self.scrumColor = state.scrumColor
+      self.speakers = state.speakers
+      let tickOffset = state.isTimerActive ? 1 : 0
+      self.timerTrim = Double(state.secondsElapsed + tickOffset) / Double(state.lengthInSeconds)
+    }
   }
-
-  private var currentSpeaker: String {
-    speakers.first(where: { !$0.isCompleted })?.name ?? "Someone"
-  }
-
-  private var timerTrim: Double { Double(secondsElapsed + tickOffset) / Double(lengthInSeconds) }
-  private var tickOffset: Int { didAppear ? 1 : 0 }
-  @State private var didAppear = false
 
   var body: some View {
-    ZStack {
-      Circle()
-        .strokeBorder(lineWidth: 24, antialiased: true)
-      VStack {
-        Text(currentSpeaker)
-          .font(.title)
-        Text("is speaking")
-        Image(systemName: isRecording ? "mic" : "mic.slash")
-          .font(.title)
-          .padding(.top)
-          .accessibilityLabel(
-            isRecording ? "with transcription" :
-              "without transcription"
-          )
-      }
-      .accessibilityElement(children: .combine)
-      .foregroundColor(scrumColor.accessibleFontColor)
-
-      Circle()
-        .inset(by: 12)
-        .trim(from: 0, to: timerTrim)
-        .rotation(Angle(degrees: -90))
-        .stroke(scrumColor, lineWidth: 4)
-        .animation(.linear(duration: 1), value: timerTrim)
-
-      ForEach(speakers) { speaker in
-        if speaker.isCompleted, let index = speakers.firstIndex(where: { $0.id == speaker.id }) {
-          SpeakerArc(speakerIndex: index, totalSpeakers: speakers.count)
-            .rotation(Angle(degrees: -90))
-            .stroke(scrumColor, lineWidth: 12)
+    WithViewStore(self.store.scope(state: ViewState.init).actionless) { viewStore in
+      ZStack {
+        Circle()
+          .strokeBorder(lineWidth: 24, antialiased: true)
+        VStack {
+          Text(viewStore.currentSpeaker)
+            .font(.title)
+          Text("is speaking")
+          Image(systemName: viewStore.isRecording ? "mic" : "mic.slash")
+            .font(.title)
+            .padding(.top)
+            .accessibilityLabel(viewStore.isRecording ? "with transcription" : "without transcription")
         }
-      }
+        .accessibilityElement(children: .combine)
+        .foregroundColor(viewStore.scrumColor.accessibleFontColor)
+
+        Circle()
+          .inset(by: 12)
+          .trim(from: 0, to: viewStore.timerTrim)
+          .rotation(Angle(degrees: -90))
+          .stroke(viewStore.scrumColor, lineWidth: 4)
+          .animation(.linear(duration: 1), value: viewStore.timerTrim)
+
+        ForEach(viewStore.speakers) { speaker in
+          if speaker.isCompleted, let index = viewStore.speakers.firstIndex(where: { $0.id == speaker.id }) {
+            SpeakerArc(speakerIndex: index, totalSpeakers: viewStore.speakers.count)
+              .rotation(Angle(degrees: -90))
+              .stroke(viewStore.scrumColor, lineWidth: 12)
+          }
+        }
+      }.padding(.horizontal)
     }
-    .padding(.horizontal)
-    .onAppear { DispatchQueue.main.async { didAppear = true } }
   }
 }

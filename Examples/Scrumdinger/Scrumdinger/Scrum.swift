@@ -249,6 +249,6 @@ extension Meeting {
   init(state: Scrum) {
     self.lengthInMinutes = state.lengthInMinutes
     self.scrumColor = state.color
-    self.speakers = state.attendees.isEmpty ? [Speaker(name: "Speaker")] : state.attendees.map { Speaker(name: $0) }
+    self.speakers = state.attendees.isEmpty ? [Speaker(name: "Someone")] : state.attendees.map { Speaker(name: $0) }
   }
 }
