@@ -8,7 +8,7 @@ struct Meeting: Equatable {
   var isRecording = false
   var isTimerActive: Bool = false
   var lengthInMinutes: Int = 5
-  var secondsElapsedForSpeaker: Int = 0
+  var secondsElapsed: Int = 0
   var speakers: [Speaker] = []
   var transcript = ""
 
@@ -20,8 +20,8 @@ struct Meeting: Equatable {
 
   var attendees: [String] { speakers.map(\.name) }
   var lengthInSeconds: Int { lengthInMinutes * 60 }
-  var secondsElapsed: Int { secondsPerSpeaker * activeSpeakerIndex + secondsElapsedForSpeaker }
-  var secondsPerSpeaker: Int { lengthInMinutes * 60 / max(speakers.count, 1) }
+  var secondsElapsedForSpeaker: Int { secondsElapsed - Int(secondsPerSpeaker * Double(activeSpeakerIndex)) }
+  var secondsPerSpeaker: Double { Double(lengthInMinutes * 60) / Double(max(speakers.count, 1)) }
   var secondsRemaining: Int { max(lengthInSeconds - secondsElapsed, 0) }
 }
 
@@ -71,9 +71,9 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
   func nextSpeaker() -> Effect<MeetingAction, Never> {
     state.speakers[state.activeSpeakerIndex].isCompleted = true
     let nextIndex = state.activeSpeakerIndex + 1
+    state.secondsElapsed = Int(state.secondsPerSpeaker * Double(nextIndex))
     if nextIndex < state.speakers.count {
       state.activeSpeakerIndex = nextIndex
-      state.secondsElapsedForSpeaker = 0
       return .none
     } else {
       return finishMeeting()
@@ -135,8 +135,8 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
     }
 
   case .timerTicked:
-    state.secondsElapsedForSpeaker += 1
-    if state.secondsElapsedForSpeaker >= state.secondsPerSpeaker {
+    state.secondsElapsed += 1
+    if state.secondsElapsedForSpeaker >= Int(state.secondsPerSpeaker) {
       return .merge(
         environment.audioPlayerClient.play(.ding).fireAndForget(),
         nextSpeaker()

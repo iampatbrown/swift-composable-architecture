@@ -52,6 +52,7 @@ struct MeetingTimerView: View {
       self.speakers = state.speakers
       let tickOffset = state.isTimerActive ? 1 : 0
       self.timerTrim = Double(state.secondsElapsed + tickOffset) / Double(state.lengthInSeconds)
+      
     }
   }
 
