@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import SwiftUI
 
 extension Color {
@@ -26,4 +27,22 @@ extension Color {
   }
 
   var accessibleFontColor: Color { luminance > 0.5 ? .black : .white }
+}
+
+protocol LifecycleAction {
+  static var onAppear: Self { get }
+  static var onDisappear: Self { get }
+}
+
+extension Reducer where Action: LifecycleAction {
+  func lifecycle(
+    _ reducer: @escaping (inout State?, Action, Environment) -> Effect<Action, Never>
+  ) -> Reducer<State?, Action, Environment> {
+    .init { state, action, environment in
+      let lifecycleEffects = reducer(&state, action, environment)
+      guard state != nil else { return lifecycleEffects }
+      let effects = self.run(&state!, action, environment)
+      return .merge(lifecycleEffects, effects)
+    }
+  }
 }

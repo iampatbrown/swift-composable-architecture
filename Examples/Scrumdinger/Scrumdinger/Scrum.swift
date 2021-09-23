@@ -34,7 +34,6 @@ enum ScrumAction {
   case applyChanges
   case edit(EditAction)
   case meeting(MeetingAction)
-  case saveMeeting
   case setIsEditing(Bool)
   case setIsMeetingActive(Bool)
 }
@@ -54,7 +53,6 @@ let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
     ),
 
   meetingReducer
-    .optional()
     .pullback(
       state: \Scrum.meeting,
       action: /ScrumAction.meeting,
@@ -82,13 +80,6 @@ let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
     case .meeting:
       return .none
 
-    case .saveMeeting:
-      if let newHistory = state.meeting.map(Scrum.History.init) {
-        state.history.insert(newHistory, at: 0)
-        state.meeting = nil
-      }
-      return .none
-
     case .setIsEditing(true):
       guard state.pendingChanges == nil else { return .none }
       state.pendingChanges = EditState(state: state)
@@ -105,8 +96,11 @@ let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
 
     case .setIsMeetingActive(false):
       state.isMeetingActive = false
-      return Effect(value: .saveMeeting)
-        .deferred(for: 0.2, scheduler: environment.mainQueue) // TODO: Fix this
+      if let newHistory = state.meeting.map(Scrum.History.init) {
+        state.history.insert(newHistory, at: 0)
+        state.meeting = nil
+      }
+      return .none
     }
   }
 )

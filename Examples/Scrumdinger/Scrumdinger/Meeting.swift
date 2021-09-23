@@ -25,7 +25,7 @@ struct Meeting: Equatable {
   var secondsRemaining: Int { max(lengthInSeconds - secondsElapsed, 0) }
 }
 
-enum MeetingAction {
+enum MeetingAction: LifecycleAction {
   case skipSpeaker
   case onAppear
   case onDisappear
@@ -41,10 +41,10 @@ struct MeetingEnvironment {
   var speechClient: SpeechClient
 }
 
-let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state, action, environment in
-  struct SpeechRecognitionId: Hashable {}
-  struct TimerId: Hashable {}
+private struct SpeechRecognitionId: Hashable {}
+private struct TimerId: Hashable {}
 
+let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state, action, environment in
   func startRecording() -> Effect<MeetingAction, Never> {
     state.isRecording = true
     let request = SFSpeechAudioBufferRecognitionRequest(shouldReportPartialResults: true)
@@ -85,16 +85,10 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
     return nextSpeaker()
 
   case .onAppear:
-    return environment.speechClient.requestRecordPermission()
-      .receive(on: environment.mainQueue)
-      .map(MeetingAction.recordPermissionResponse)
-      .eraseToEffect()
+    return .none
 
   case .onDisappear:
-    return .merge(
-      Effect.cancel(id: SpeechRecognitionId()),
-      Effect.cancel(id: TimerId())
-    )
+    return .none
 
   case let .recordPermissionResponse(permission):
     if permission {
@@ -144,6 +138,22 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
     } else {
       return .none
     }
+  }
+}.lifecycle { state, action, environment in
+  switch action {
+  case .onAppear:
+    return environment.speechClient.requestRecordPermission()
+      .receive(on: environment.mainQueue)
+      .map(MeetingAction.recordPermissionResponse)
+      .eraseToEffect()
+
+  case .onDisappear:
+    return .merge(
+      Effect.cancel(id: SpeechRecognitionId()),
+      Effect.cancel(id: TimerId())
+    )
+  default:
+    return .none
   }
 }
 
