@@ -106,7 +106,7 @@ let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
     case .setIsMeetingActive(false):
       state.isMeetingActive = false
       return Effect(value: .saveMeeting)
-        .deferred(for: 0, scheduler: environment.mainQueue)
+        .deferred(for: 0.2, scheduler: environment.mainQueue) // TODO: Fix this
     }
   }
 )
