@@ -30,7 +30,7 @@ struct Scrum: Equatable, Identifiable {
   }
 }
 
-enum ScrumAction {
+enum ScrumAction: Equatable {
   case applyChanges
   case edit(EditAction)
   case meeting(MeetingAction)

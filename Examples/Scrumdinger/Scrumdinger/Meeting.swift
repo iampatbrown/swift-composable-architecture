@@ -25,7 +25,7 @@ struct Meeting: Equatable {
   var secondsRemaining: Int { max(lengthInSeconds - secondsElapsed, 0) }
 }
 
-enum MeetingAction: LifecycleAction {
+enum MeetingAction: Equatable, LifecycleAction {
   case skipSpeaker
   case onAppear
   case onDisappear

@@ -1,34 +1,40 @@
 import ComposableArchitecture
 import SwiftUI
 
-struct AppState: Equatable {
-  var newScrum: EditState?
+struct Scrums: Equatable {
+  var newScrum: NewScrum?
   var scrums: IdentifiedArrayOf<Scrum> = []
+
+  init(_ scrums: [Scrum] = []) {
+    self.scrums = .init(uniqueElements: scrums)
+  }
 }
 
-enum AppAction {
-  case addNewScrum
-  case newScrum(EditAction)
-  case onLaunch
-  case scenePhaseChanged(ScenePhase)
+enum ScrumsAction: Equatable {
+  case newScrum(NewScrumAction)
   case scrum(id: Scrum.ID, action: ScrumAction)
-  case scrumsLoaded(Result<[Scrum], NSError>)
-  case setIsAddingScrum(Bool)
+  case setNewScrumSheet(isPresented: Bool)
 }
 
-struct AppEnvironment {
+struct ScrumsEnvironment {
   var audioPlayerClient: AudioPlayerClient
-  var backgroundQueue: AnySchedulerOf<DispatchQueue>
-  var fileClient: FileClient
   var mainQueue: AnySchedulerOf<DispatchQueue>
   var speechClient: SpeechClient
   var uuid: () -> UUID
 }
 
-let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
+let scrumsReducer = Reducer<Scrums, ScrumsAction, ScrumsEnvironment>.combine(
+  newScrumReducer
+    .optional()
+    .pullback(
+      state: \Scrums.newScrum,
+      action: /ScrumsAction.newScrum,
+      environment: { _ in NewScrumEnvironment() }
+    ),
+
   scrumReducer.forEach(
-    state: \AppState.scrums,
-    action: /AppAction.scrum(id:action:),
+    state: \Scrums.scrums,
+    action: /ScrumsAction.scrum(id:action:),
     environment: {
       ScrumEnvironment(
         audioPlayerClient: $0.audioPlayerClient,
@@ -38,80 +44,45 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
     }
   ),
 
-  editReducer
-    .optional()
-    .pullback(
-      state: \AppState.newScrum,
-      action: /AppAction.newScrum,
-      environment: { _ in EditEnvironment() }
-    ),
-
   Reducer { state, action, environment in
     switch action {
-    case .addNewScrum:
+    case .newScrum(.addButtonTapped):
       if let newScrum = state.newScrum {
         let id = environment.uuid()
-        state.scrums.append(Scrum(id: id, state: newScrum))
-        state.newScrum = nil
+        state.scrums.append(Scrum(id: id, state: newScrum.state))
       }
-      return .none
+      return Effect(value: .setNewScrumSheet(isPresented: false))
+
+    case .newScrum(.cancelButtonTapped):
+      return Effect(value: .setNewScrumSheet(isPresented: false))
 
     case .newScrum:
       return .none
 
-    case .onLaunch:
-      return environment.fileClient.loadScrums()
-        .subscribe(on: environment.backgroundQueue)
-        .receive(on: environment.mainQueue.animation())
-        .eraseToEffect()
-        .map(AppAction.scrumsLoaded)
-
-    case let .scenePhaseChanged(scenePhase):
-      if scenePhase == .inactive {
-        return environment.fileClient.saveScrums(Array(state.scrums))
-          .subscribe(on: environment.backgroundQueue)
-          .receive(on: environment.mainQueue)
-          .fireAndForget()
-      } else {
-        return .none
-      }
-
     case .scrum:
       return .none
 
-    case let .scrumsLoaded(.success(scrums)):
-      state.scrums = .init(uniqueElements: scrums)
-      return .none
-
-    case let .scrumsLoaded(.failure(error)):
-      if error.code == NSFileReadNoSuchFileError {
-        state.scrums = .mock
+    case .setNewScrumSheet(isPresented: true):
+      if state.newScrum == nil {
+        state.newScrum = NewScrum()
       }
       return .none
 
-    case .setIsAddingScrum(true):
-      state.newScrum = EditState()
-      return .none
-
-    case .setIsAddingScrum(false):
+    case .setNewScrumSheet(isPresented: false):
       state.newScrum = nil
       return .none
     }
   }
 )
 
-struct AppView: View {
-  let store: Store<AppState, AppAction>
-
-  @Environment(\.scenePhase) private var scenePhase
+struct ScrumsView: View {
+  let store: Store<Scrums, ScrumsAction>
 
   struct ViewState: Equatable {
-    let isAddingScrum: Bool
-    let scrums: IdentifiedArrayOf<Scrum>
+    let isPresentingNewScrum: Bool
 
-    init(state: AppState) {
-      self.isAddingScrum = state.newScrum != nil
-      self.scrums = state.scrums
+    init(state: Scrums) {
+      self.isPresentingNewScrum = state.newScrum != nil
     }
   }
 
@@ -119,7 +90,7 @@ struct AppView: View {
     WithViewStore(self.store.scope(state: ViewState.init)) { viewStore in
       List {
         ForEachStore(
-          self.store.scope(state: \AppState.scrums, action: AppAction.scrum(id:action:))
+          self.store.scope(state: \Scrums.scrums, action: ScrumsAction.scrum(id:action:))
         ) { childStore in
           WithViewStore(childStore) { childViewStore in
             NavigationLink(
@@ -133,32 +104,27 @@ struct AppView: View {
       .navigationTitle("Daily Scrums")
       .navigationBarItems(
         trailing: Button(
-          action: { viewStore.send(.setIsAddingScrum(true)) },
+          action: { viewStore.send(.setNewScrumSheet(isPresented: true)) },
           label: { Image(systemName: "plus") }
         )
       )
       .sheet(
         isPresented: viewStore
           .binding(
-            get: \.isAddingScrum,
-            send: AppAction.setIsAddingScrum
+            get: \.isPresentingNewScrum,
+            send: ScrumsAction.setNewScrumSheet(isPresented:)
           )
       ) {
         NavigationView {
           IfLetStore(
             self.store.scope(
-              state: \AppState.newScrum,
-              action: AppAction.newScrum
+              state: \Scrums.newScrum,
+              action: ScrumsAction.newScrum
             ),
-            then: EditView.init(store:)
-          )
-          .navigationBarItems(
-            leading: Button("Dismiss") { viewStore.send(.setIsAddingScrum(false)) },
-            trailing: Button("Add") { viewStore.send(.addNewScrum) }
+            then: NewScrumView.init(store:)
           )
         }
       }
-      .onChange(of: scenePhase) { viewStore.send(.scenePhaseChanged($0)) }
     }
   }
 }
@@ -174,7 +140,7 @@ extension Scrum {
 }
 
 extension IdentifiedArray where ID == Scrum.ID, Element == Scrum {
-  static let mock: Self = [
+  static let placeholder: Self = [
     Scrum(
       attendees: ["Cathy", "Daisy", "Simon", "Jonathan"],
       color: .orange,

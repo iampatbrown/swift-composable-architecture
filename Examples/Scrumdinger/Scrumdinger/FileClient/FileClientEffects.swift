@@ -1,14 +1,14 @@
 import ComposableArchitecture
 
 extension FileClient {
-  func loadScrums() -> Effect<Result<[Scrum], NSError>, Never> {
+  func loadScrums() -> Effect<Result<Scrums, NSError>, Never> {
     self.load([ScrumData].self, from: scrumsFileName)
-      .map { $0.map { $0.map(Scrum.init) } }
+      .map { $0.map { Scrums($0.map(Scrum.init)) } }
       .eraseToEffect()
   }
 
-  func saveScrums(_ scrums: [Scrum]) -> Effect<Never, Never> {
-    self.save(scrums.map(ScrumData.init), to: scrumsFileName)
+  func saveScrums(_ state: Scrums) -> Effect<Never, Never> {
+    self.save(state.scrums.map(ScrumData.init), to: scrumsFileName)
   }
 }
 
