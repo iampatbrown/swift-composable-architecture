@@ -45,7 +45,8 @@ struct ScrumEnvironment {
 }
 
 let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
-  editReducer.optional()
+  editReducer
+    .optional()
     .pullback(
       state: \Scrum.pendingChanges,
       action: /ScrumAction.edit,
