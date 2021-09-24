@@ -4,12 +4,11 @@ import SwiftUI
 struct Scrum: Equatable, Identifiable {
   var attendees: [String] = []
   var color: Color = .orange
+  var edit: EditState?
   var history: [History] = []
   var id = UUID()
-  var isMeetingActive: Bool = false
   var lengthInMinutes: Int = 5
   var meeting: Meeting?
-  var pendingChanges: EditState?
   var title: String = ""
 
   struct History: Equatable, Identifiable {
@@ -19,36 +18,29 @@ struct Scrum: Equatable, Identifiable {
     var lengthInMinutes: Int
     var transcript: String?
   }
-
-  mutating func applyChanges() {
-    guard let changes = self.pendingChanges else { return }
-    self.attendees = changes.attendees
-    self.color = changes.color
-    self.lengthInMinutes = Int(changes.lengthInMinutes)
-    self.title = changes.title
-    self.pendingChanges = nil
-  }
 }
 
 enum ScrumAction: Equatable {
-  case applyChanges
+  case doneEditingButtonTapped
   case edit(EditAction)
   case meeting(MeetingAction)
-  case setIsEditing(Bool)
-  case setIsMeetingActive(Bool)
+  case setEditing(isPresented: Bool)
+  case setMeeting(isActive: Bool)
 }
 
 struct ScrumEnvironment {
   var audioPlayerClient: AudioPlayerClient
+  var date: () -> Date
   var mainQueue: AnySchedulerOf<DispatchQueue>
   var speechClient: SpeechClient
+  var uuid: () -> UUID
 }
 
 let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
   editReducer
     .optional()
     .pullback(
-      state: \Scrum.pendingChanges,
+      state: \Scrum.edit,
       action: /ScrumAction.edit,
       environment: { _ in EditEnvironment() }
     ),
@@ -68,36 +60,38 @@ let scrumReducer = Reducer<Scrum, ScrumAction, ScrumEnvironment>.combine(
 
   Reducer { state, action, environment in
     switch action {
-    case .applyChanges:
-      state.applyChanges()
-      return .none
+    case .doneEditingButtonTapped:
+      if let edit = state.edit {
+        state.attendees = edit.attendees
+        state.color = edit.color
+        state.lengthInMinutes = Int(edit.lengthInMinutes)
+        state.title = edit.title
+      }
+      return Effect(value: .setEditing(isPresented: false))
 
     case .edit:
-      return .none
-
-    case .meeting(.onDisappear):
       return .none
 
     case .meeting:
       return .none
 
-    case .setIsEditing(true):
-      guard state.pendingChanges == nil else { return .none }
-      state.pendingChanges = EditState(state: state)
+    case .setEditing(isPresented: true):
+      state.edit = EditState(state: state)
       return .none
 
-    case .setIsEditing(false):
-      state.pendingChanges = nil
+    case .setEditing(isPresented: false):
+      state.edit = nil
       return .none
 
-    case .setIsMeetingActive(true):
-      state.isMeetingActive = true
+    case .setMeeting(isActive: true):
       state.meeting = Meeting(state: state)
       return .none
 
-    case .setIsMeetingActive(false):
-      state.isMeetingActive = false
-      if let newHistory = state.meeting.map(Scrum.History.init) {
+    case .setMeeting(isActive: false):
+      if let meeting = state.meeting {
+        let id = environment.uuid()
+        let date = environment.date()
+        let newHistory = Scrum.History(id: id, date: date, state: meeting)
         state.history.insert(newHistory, at: 0)
         state.meeting = nil
       }
@@ -114,7 +108,7 @@ struct ScrumView: View {
     let color: Color
     let history: [Scrum.History]
     let lengthInMinutes: Int
-    let isEditing: Bool
+    let isEditingPresented: Bool
     let isMeetingActive: Bool
     let title: String
 
@@ -123,8 +117,8 @@ struct ScrumView: View {
       self.color = state.color
       self.history = state.history
       self.lengthInMinutes = state.lengthInMinutes
-      self.isEditing = state.pendingChanges != nil
-      self.isMeetingActive = state.isMeetingActive
+      self.isEditingPresented = state.edit != nil
+      self.isMeetingActive = state.meeting != nil
       self.title = state.title
     }
   }
@@ -136,7 +130,7 @@ struct ScrumView: View {
           NavigationLink(
             isActive: viewStore.binding(
               get: \.isMeetingActive,
-              send: ScrumAction.setIsMeetingActive
+              send: ScrumAction.setMeeting(isActive:)
             ),
             destination: {
               IfLetStore(
@@ -195,27 +189,27 @@ struct ScrumView: View {
       }
       .listStyle(InsetGroupedListStyle())
       .navigationBarItems(
-        trailing: Button("Edit") { viewStore.send(.setIsEditing(true)) }
+        trailing: Button("Edit") { viewStore.send(.setEditing(isPresented: true)) }
       )
       .navigationTitle(viewStore.title)
       .fullScreenCover(
         isPresented: viewStore.binding(
-          get: \.isEditing,
-          send: ScrumAction.setIsEditing
+          get: \.isEditingPresented,
+          send: ScrumAction.setEditing(isPresented:)
         )
       ) {
         NavigationView {
           IfLetStore(
             self.store.scope(
-              state: \Scrum.pendingChanges,
+              state: \Scrum.edit,
               action: ScrumAction.edit
             ),
             then: EditView.init(store:)
           )
           .navigationTitle(viewStore.title)
           .navigationBarItems(
-            leading: Button("Cancel") { viewStore.send(.setIsEditing(false)) },
-            trailing: Button("Done") { viewStore.send(.applyChanges) }
+            leading: Button("Cancel") { viewStore.send(.setEditing(isPresented: false)) },
+            trailing: Button("Done") { viewStore.send(.doneEditingButtonTapped) }
           )
         }
       }
@@ -233,8 +227,10 @@ extension EditState {
 }
 
 extension Scrum.History {
-  init(state: Meeting) {
+  init(id: UUID, date: Date, state: Meeting) {
     self.attendees = state.attendees
+    self.date = date
+    self.id = id
     self.lengthInMinutes = state.secondsElapsed
     self.transcript = state.transcript
   }

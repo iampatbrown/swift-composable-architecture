@@ -13,7 +13,7 @@
 		231ECC8C26FD5D0B000D6086 /* FailingSpeechClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECC8B26FD5D0B000D6086 /* FailingSpeechClient.swift */; };
 		231ECC8E26FD5DEF000D6086 /* FailingAudioPlayerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECC8D26FD5DEF000D6086 /* FailingAudioPlayerClient.swift */; };
 		231ECC9026FD6046000D6086 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECC8F26FD6046000D6086 /* App.swift */; };
-		231ECC9226FD6805000D6086 /* NewScrum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECC9126FD6805000D6086 /* NewScrum.swift */; };
+		231ECCAE26FDC218000D6086 /* SpeechRecognition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECCAD26FDC218000D6086 /* SpeechRecognition.swift */; };
 		2331599026FAF0A60032A812 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 2331598F26FAF0A60032A812 /* ComposableArchitecture */; };
 		2331599226FAF1100032A812 /* Scrum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2331599126FAF1100032A812 /* Scrum.swift */; };
 		2331599426FAF1180032A812 /* Scrums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2331599326FAF1180032A812 /* Scrums.swift */; };
@@ -56,7 +56,7 @@
 		231ECC8B26FD5D0B000D6086 /* FailingSpeechClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailingSpeechClient.swift; sourceTree = "<group>"; };
 		231ECC8D26FD5DEF000D6086 /* FailingAudioPlayerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FailingAudioPlayerClient.swift; sourceTree = "<group>"; };
 		231ECC8F26FD6046000D6086 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		231ECC9126FD6805000D6086 /* NewScrum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewScrum.swift; sourceTree = "<group>"; };
+		231ECCAD26FDC218000D6086 /* SpeechRecognition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognition.swift; sourceTree = "<group>"; };
 		2331599126FAF1100032A812 /* Scrum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scrum.swift; sourceTree = "<group>"; };
 		2331599326FAF1180032A812 /* Scrums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scrums.swift; sourceTree = "<group>"; };
 		2331599526FAF1290032A812 /* Meeting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Meeting.swift; sourceTree = "<group>"; };
@@ -188,10 +188,10 @@
 				2331599726FAF1A00032A812 /* Edit.swift */,
 				233159A426FAF95F0032A812 /* Helpers.swift */,
 				2331599526FAF1290032A812 /* Meeting.swift */,
-				231ECC9126FD6805000D6086 /* NewScrum.swift */,
 				2331599126FAF1100032A812 /* Scrum.swift */,
 				23FDCBA726FAE5FA00E150BF /* ScrumdingerApp.swift */,
 				2331599326FAF1180032A812 /* Scrums.swift */,
+				231ECCAD26FDC218000D6086 /* SpeechRecognition.swift */,
 				23FDCBAB26FAE5FC00E150BF /* Assets.xcassets */,
 				2331599926FAF2780032A812 /* AudioPlayerClient */,
 				2331599B26FAF2C70032A812 /* FileClient */,
@@ -334,11 +334,11 @@
 				231ECC8E26FD5DEF000D6086 /* FailingAudioPlayerClient.swift in Sources */,
 				231ECC8C26FD5D0B000D6086 /* FailingSpeechClient.swift in Sources */,
 				233159B726FB3FFD0032A812 /* FileClient.swift in Sources */,
-				231ECC9226FD6805000D6086 /* NewScrum.swift in Sources */,
 				233159A126FAF40B0032A812 /* CardView.swift in Sources */,
 				231ECC9026FD6046000D6086 /* App.swift in Sources */,
 				233159AF26FB21160032A812 /* LiveAudioPlayerClient.swift in Sources */,
 				2331599426FAF1180032A812 /* Scrums.swift in Sources */,
+				231ECCAE26FDC218000D6086 /* SpeechRecognition.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

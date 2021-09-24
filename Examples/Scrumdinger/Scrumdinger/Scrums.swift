@@ -2,7 +2,7 @@ import ComposableArchitecture
 import SwiftUI
 
 struct Scrums: Equatable {
-  var newScrum: NewScrum?
+  var newScrum: EditState?
   var scrums: IdentifiedArrayOf<Scrum> = []
 
   init(_ scrums: [Scrum] = []) {
@@ -11,25 +11,27 @@ struct Scrums: Equatable {
 }
 
 enum ScrumsAction: Equatable {
-  case newScrum(NewScrumAction)
+  case addScrumButtonTapped
+  case newScrum(EditAction)
   case scrum(id: Scrum.ID, action: ScrumAction)
   case setNewScrumSheet(isPresented: Bool)
 }
 
 struct ScrumsEnvironment {
   var audioPlayerClient: AudioPlayerClient
+  var date: () -> Date
   var mainQueue: AnySchedulerOf<DispatchQueue>
   var speechClient: SpeechClient
   var uuid: () -> UUID
 }
 
 let scrumsReducer = Reducer<Scrums, ScrumsAction, ScrumsEnvironment>.combine(
-  newScrumReducer
+  editReducer
     .optional()
     .pullback(
       state: \Scrums.newScrum,
       action: /ScrumsAction.newScrum,
-      environment: { _ in NewScrumEnvironment() }
+      environment: { _ in EditEnvironment() }
     ),
 
   scrumReducer.forEach(
@@ -38,23 +40,18 @@ let scrumsReducer = Reducer<Scrums, ScrumsAction, ScrumsEnvironment>.combine(
     environment: {
       ScrumEnvironment(
         audioPlayerClient: $0.audioPlayerClient,
+        date: $0.date,
         mainQueue: $0.mainQueue,
-        speechClient: $0.speechClient
+        speechClient: $0.speechClient,
+        uuid: $0.uuid
       )
     }
   ),
 
   Reducer { state, action, environment in
     switch action {
-    case .newScrum(.addButtonTapped):
-      if let newScrum = state.newScrum {
-        let id = environment.uuid()
-        state.scrums.append(Scrum(id: id, state: newScrum.state))
-      }
-      return Effect(value: .setNewScrumSheet(isPresented: false))
-
-    case .newScrum(.cancelButtonTapped):
-      return Effect(value: .setNewScrumSheet(isPresented: false))
+    case .addScrumButtonTapped:
+      return .none
 
     case .newScrum:
       return .none
@@ -64,7 +61,7 @@ let scrumsReducer = Reducer<Scrums, ScrumsAction, ScrumsEnvironment>.combine(
 
     case .setNewScrumSheet(isPresented: true):
       if state.newScrum == nil {
-        state.newScrum = NewScrum()
+        state.newScrum = EditState()
       }
       return .none
 
@@ -79,10 +76,10 @@ struct ScrumsView: View {
   let store: Store<Scrums, ScrumsAction>
 
   struct ViewState: Equatable {
-    let isPresentingNewScrum: Bool
+    let isNewScrumPresented: Bool
 
     init(state: Scrums) {
-      self.isPresentingNewScrum = state.newScrum != nil
+      self.isNewScrumPresented = state.newScrum != nil
     }
   }
 
@@ -111,7 +108,7 @@ struct ScrumsView: View {
       .sheet(
         isPresented: viewStore
           .binding(
-            get: \.isPresentingNewScrum,
+            get: \.isNewScrumPresented,
             send: ScrumsAction.setNewScrumSheet(isPresented:)
           )
       ) {
@@ -121,7 +118,11 @@ struct ScrumsView: View {
               state: \Scrums.newScrum,
               action: ScrumsAction.newScrum
             ),
-            then: NewScrumView.init(store:)
+            then: EditView.init(store:)
+          )
+          .navigationBarItems(
+            leading: Button("Cancel") { viewStore.send(.setNewScrumSheet(isPresented: false)) },
+            trailing: Button("Add") { viewStore.send(.addScrumButtonTapped) }
           )
         }
       }

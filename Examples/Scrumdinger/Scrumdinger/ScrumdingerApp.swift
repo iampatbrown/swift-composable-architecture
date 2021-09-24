@@ -12,6 +12,7 @@ struct ScrumdingerApp: App {
           environment: AppEnvironment(
             audioPlayerClient: .live,
             backgroundQueue: DispatchQueue.global(qos: .background).eraseToAnyScheduler(),
+            date: Date.init,
             fileClient: .live,
             mainQueue: .main,
             speechClient: .live,

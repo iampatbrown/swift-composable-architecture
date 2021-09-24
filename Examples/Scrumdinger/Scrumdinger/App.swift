@@ -15,6 +15,7 @@ enum AppAction {
 struct AppEnvironment {
   var audioPlayerClient: AudioPlayerClient
   var backgroundQueue: AnySchedulerOf<DispatchQueue>
+  var date: () -> Date
   var fileClient: FileClient
   var mainQueue: AnySchedulerOf<DispatchQueue>
   var speechClient: SpeechClient
@@ -28,6 +29,7 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
     environment: {
       ScrumsEnvironment(
         audioPlayerClient: $0.audioPlayerClient,
+        date: $0.date,
         mainQueue: $0.mainQueue,
         speechClient: $0.speechClient,
         uuid: $0.uuid

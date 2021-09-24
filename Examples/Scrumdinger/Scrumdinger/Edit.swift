@@ -10,7 +10,7 @@ struct EditState: Equatable {
 }
 
 enum EditAction: Equatable, BindableAction {
-  case addNewAttendee
+  case addNewAttendeeButtonTapped
   case binding(BindingAction<EditState>)
   case deleteAttendee(IndexSet)
 }
@@ -19,7 +19,7 @@ struct EditEnvironment {}
 
 let editReducer = Reducer<EditState, EditAction, EditEnvironment> { state, action, _ in
   switch action {
-  case .addNewAttendee:
+  case .addNewAttendeeButtonTapped:
     state.attendees.append(state.newAttendee)
     state.newAttendee = ""
     return .none
@@ -61,7 +61,7 @@ struct EditView: View {
             .onDelete { viewStore.send(.deleteAttendee($0)) }
           HStack {
             TextField("New Attendee", text: viewStore.binding(\.$newAttendee))
-            Button(action: { viewStore.send(.addNewAttendee, animation: .default) }) {
+            Button(action: { viewStore.send(.addNewAttendeeButtonTapped, animation: .default) }) {
               Image(systemName: "plus.circle.fill")
                 .accessibilityLabel(Text("Add attendee"))
             }
