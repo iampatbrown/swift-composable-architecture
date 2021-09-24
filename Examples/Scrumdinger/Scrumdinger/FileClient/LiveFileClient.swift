@@ -1,27 +1,38 @@
 import ComposableArchitecture
 
 extension FileClient {
-  private static let fileName = "scrums.data"
-
   static var live: Self {
-    let documentsFolder = FileManager.default
+    let documentDirectory = FileManager.default
       .urls(for: .documentDirectory, in: .userDomainMask)
       .first!
 
-    let fileURL = documentsFolder.appendingPathComponent(fileName)
-
     return Self(
-      load: {
-        Effect.catching { try Data(contentsOf: fileURL) }
-          .decode(type: [ScrumData].self, decoder: JSONDecoder())
-          .map { $0.map(Scrum.init) }
-          .eraseToEffect()
+      delete: { fileName in
+        .fireAndForget {
+          try? FileManager.default.removeItem(
+            at: documentDirectory
+              .appendingPathComponent(fileName)
+              .appendingPathExtension("json")
+          )
+        }
       },
-      save: { scrums in
-        Effect.catching {
-          let data = try JSONEncoder().encode(scrums.map(ScrumData.init))
-          try data.write(to: fileURL)
-        }.fireAndForget()
+      load: { fileName in
+        .catching {
+          try Data(
+            contentsOf: documentDirectory
+              .appendingPathComponent(fileName)
+              .appendingPathExtension("json")
+          )
+        }
+      },
+      save: { fileName, data in
+        .fireAndForget {
+          try? data.write(
+            to: documentDirectory
+              .appendingPathComponent(fileName)
+              .appendingPathExtension("json")
+          )
+        }
       }
     )
   }

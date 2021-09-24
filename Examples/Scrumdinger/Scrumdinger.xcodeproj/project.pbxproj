@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		231ECC8426FD4E93000D6086 /* FileClientEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 231ECC8326FD4E93000D6086 /* FileClientEffects.swift */; };
 		2331599026FAF0A60032A812 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 2331598F26FAF0A60032A812 /* ComposableArchitecture */; };
 		2331599226FAF1100032A812 /* Scrum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2331599126FAF1100032A812 /* Scrum.swift */; };
 		2331599426FAF1180032A812 /* Scrums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2331599326FAF1180032A812 /* Scrums.swift */; };
@@ -43,6 +44,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		231ECC8326FD4E93000D6086 /* FileClientEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClientEffects.swift; sourceTree = "<group>"; };
 		2331599126FAF1100032A812 /* Scrum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scrum.swift; sourceTree = "<group>"; };
 		2331599326FAF1180032A812 /* Scrums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scrums.swift; sourceTree = "<group>"; };
 		2331599526FAF1290032A812 /* Meeting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Meeting.swift; sourceTree = "<group>"; };
@@ -118,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				233159B626FB3FFD0032A812 /* FileClient.swift */,
+				231ECC8326FD4E93000D6086 /* FileClientEffects.swift */,
 				233159BA26FB43B90032A812 /* LiveFileClient.swift */,
 				233159B826FB40430032A812 /* ScrumData.swift */,
 			);
@@ -127,11 +130,11 @@
 		2331599F26FAF3EC0032A812 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				233159A026FAF40B0032A812 /* CardView.swift */,
+				233159A226FAF4370032A812 /* HistoryView.swift */,
 				233159A826FB1EF80032A812 /* MeetingFooterView.swift */,
 				233159A626FB1EF70032A812 /* MeetingHeaderView.swift */,
 				233159A726FB1EF70032A812 /* MeetingTimerView.swift */,
-				233159A226FAF4370032A812 /* HistoryView.swift */,
-				233159A026FAF40B0032A812 /* CardView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -294,6 +297,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2331599226FAF1100032A812 /* Scrum.swift in Sources */,
+				231ECC8426FD4E93000D6086 /* FileClientEffects.swift in Sources */,
 				2331599626FAF1290032A812 /* Meeting.swift in Sources */,
 				233159AA26FB1EF80032A812 /* MeetingTimerView.swift in Sources */,
 				233159B926FB40430032A812 /* ScrumData.swift in Sources */,

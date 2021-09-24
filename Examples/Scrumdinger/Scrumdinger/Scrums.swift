@@ -12,7 +12,7 @@ enum AppAction {
   case onLaunch
   case scenePhaseChanged(ScenePhase)
   case scrum(id: Scrum.ID, action: ScrumAction)
-  case scrumsLoaded(Result<[Scrum], Error>)
+  case scrumsLoaded(Result<[Scrum], NSError>)
   case setIsAddingScrum(Bool)
 }
 
@@ -60,14 +60,15 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
       return .none
 
     case .onLaunch:
-      return environment.fileClient.load()
+      return environment.fileClient.loadScrums()
         .subscribe(on: environment.backgroundQueue)
         .receive(on: environment.mainQueue.animation())
-        .catchToEffect(AppAction.scrumsLoaded)
+        .eraseToEffect()
+        .map(AppAction.scrumsLoaded)
 
     case let .scenePhaseChanged(scenePhase):
       if scenePhase == .inactive {
-        return environment.fileClient.save(Array(state.scrums))
+        return environment.fileClient.saveScrums(Array(state.scrums))
           .subscribe(on: environment.backgroundQueue)
           .receive(on: environment.mainQueue)
           .fireAndForget()
@@ -82,7 +83,7 @@ let appReducer = Reducer<AppState, AppAction, AppEnvironment>.combine(
       state.scrums = .init(uniqueElements: scrums)
       return .none
 
-    case let .scrumsLoaded(.failure(error as NSError)):
+    case let .scrumsLoaded(.failure(error)):
       if error.code == NSFileReadNoSuchFileError {
         state.scrums = .mock
       }
