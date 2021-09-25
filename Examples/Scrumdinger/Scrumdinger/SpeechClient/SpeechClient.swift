@@ -4,8 +4,7 @@ import Speech
 struct SpeechClient {
   var finishTask: () -> Effect<Never, Never>
   var recognitionTask: (SFSpeechAudioBufferRecognitionRequest) -> Effect<Action, Error>
-  var requestAuthorization: () -> Effect<SFSpeechRecognizerAuthorizationStatus, Never>
-  var requestRecordPermission: () -> Effect<Bool, Never>
+  var requestAuthorization: () -> Effect<AuthorizationStatus, Never>
 
   enum Action: Equatable {
     case availabilityDidChange(isAvailable: Bool)
@@ -13,9 +12,17 @@ struct SpeechClient {
   }
 
   enum Error: Swift.Error, Equatable {
-    case taskError
+    case taskError(NSError)
     case couldntStartAudioEngine
     case couldntConfigureAudioSession
-    case siriAndDictationAreDisabled
+  }
+
+  enum AuthorizationStatus {
+    case authorized
+    case deniedRecordPermission
+    case denied
+    case restricted
+    case notDetermined
+    case unknown
   }
 }

@@ -49,10 +49,8 @@ extension SpeechClient {
             switch (result, error) {
             case let (.some(result), _):
               subscriber.send(.taskResult(SpeechRecognitionResult(result)))
-            case let (_, .some(error as NSError)) where error.code == SpeechSiriAndDictationAreDisabledError:
-              subscriber.send(completion: .failure(.siriAndDictationAreDisabled))
-            case (_, .some):
-              subscriber.send(completion: .failure(.taskError))
+            case let (_, .some(error as NSError)):
+              subscriber.send(completion: .failure(.taskError(error)))
             case (.none, .none):
               fatalError("It should not be possible to have both a nil result and nil error.")
             }
@@ -79,15 +77,9 @@ extension SpeechClient {
       },
       requestAuthorization: {
         .future { callback in
-          SFSpeechRecognizer.requestAuthorization { status in
-            callback(.success(status))
-          }
-        }
-      },
-      requestRecordPermission: {
-        .future { callback in
           AVAudioSession.sharedInstance().requestRecordPermission { isAuthorized in
-            callback(.success(isAuthorized))
+            guard isAuthorized else { return callback(.success(.deniedRecordPermission)) }
+            SFSpeechRecognizer.requestAuthorization { callback(.success(.init($0))) }
           }
         }
       }
@@ -95,7 +87,22 @@ extension SpeechClient {
   }
 }
 
-private let SpeechSiriAndDictationAreDisabledError = 201
+extension SpeechClient.AuthorizationStatus {
+  init(_ status: SFSpeechRecognizerAuthorizationStatus) {
+    switch status {
+    case .notDetermined:
+      self = .notDetermined
+    case .denied:
+      self = .denied
+    case .restricted:
+      self = .restricted
+    case .authorized:
+      self = .authorized
+    @unknown default:
+      self = .unknown
+    }
+  }
+}
 
 private class SpeechRecognizerDelegate: NSObject, SFSpeechRecognizerDelegate {
   var availabilityDidChange: (Bool) -> Void

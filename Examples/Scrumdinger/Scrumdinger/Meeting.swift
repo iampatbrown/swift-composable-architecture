@@ -29,9 +29,8 @@ enum MeetingAction: Equatable, LifecycleAction {
   case skipSpeaker
   case onAppear
   case onDisappear
-  case recordPermissionResponse(Bool)
   case speech(Result<SpeechClient.Action, SpeechClient.Error>)
-  case speechRecognizerAuthorizationStatusResponse(SFSpeechRecognizerAuthorizationStatus)
+  case speechRecognizerAuthorizationStatusResponse(SpeechClient.AuthorizationStatus)
   case timerTicked
 }
 
@@ -90,17 +89,7 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
   case .onDisappear:
     return .none
 
-  case let .recordPermissionResponse(permission):
-    if permission {
-      return environment.speechClient.requestAuthorization()
-        .receive(on: environment.mainQueue)
-        .map(MeetingAction.speechRecognizerAuthorizationStatusResponse)
-        .eraseToEffect()
-    } else {
-      return startTimer()
-    }
-
-  case let .speech(.success(.availabilityDidChange(isAvailable))):
+ case let .speech(.success(.availabilityDidChange(isAvailable))):
     return .none
 
   case let .speech(.success(.taskResult(result))):
@@ -142,9 +131,9 @@ let meetingReducer = Reducer<Meeting, MeetingAction, MeetingEnvironment> { state
 }.lifecycle { state, action, environment in
   switch action {
   case .onAppear:
-    return environment.speechClient.requestRecordPermission()
+    return environment.speechClient.requestAuthorization()
       .receive(on: environment.mainQueue)
-      .map(MeetingAction.recordPermissionResponse)
+      .map(MeetingAction.speechRecognizerAuthorizationStatusResponse)
       .eraseToEffect()
 
   case .onDisappear:
