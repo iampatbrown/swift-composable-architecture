@@ -96,3 +96,84 @@ extension Effect {
 
 var cancellationCancellables: [AnyHashable: Set<AnyCancellable>] = [:]
 let cancellablesLock = NSRecursiveLock()
+
+public final class EffectCanceller {
+  var cancellables: [AnyHashable: Set<AnyCancellable>] = [:]
+
+  public init() {}
+
+  public func register<P: Publisher>(
+    _ publisher: P,
+    id: AnyHashable,
+    cancelInFlight: Bool = false
+  ) -> Effect<P.Output, P.Failure> {
+    return Deferred { () -> Publishers.HandleEvents<PassthroughSubject<P.Output, P.Failure>> in
+      if cancelInFlight { self.cancel(id: id) }
+
+      let downstream = PassthroughSubject<P.Output, P.Failure>()
+      let upstream = publisher.subscribe(downstream)
+      var cancellable: AnyCancellable!
+
+      cancellable = AnyCancellable { [weak self] in
+        downstream.send(completion: .finished)
+        upstream.cancel()
+        guard let self = self else { return }
+        self.cancellables[id]?.remove(cancellable)
+        if self.cancellables[id]?.isEmpty == .some(true) {
+          self.cancellables[id] = nil
+        }
+      }
+
+      self.cancellables[id, default: []].insert(cancellable)
+
+      return downstream.handleEvents(
+        receiveCompletion: { _ in cancellable.cancel() },
+        receiveCancel: cancellable.cancel
+      )
+    }.eraseToEffect()
+  }
+
+  public func cancel(id: AnyHashable) {
+    self.cancellables[id]?.forEach { $0.cancel() }
+  }
+
+  public func cancel(ids: AnyHashable...) {
+    self.cancel(ids: ids)
+  }
+
+  public func cancel(ids: [AnyHashable]) {
+    ids.forEach(self.cancel)
+  }
+
+  public func cancelAll() {
+    self.cancellables.keys.forEach(self.cancel)
+  }
+
+  deinit {
+    self.cancelAll()
+  }
+}
+
+extension Effect {
+  public func cancellable(
+    with canceller: EffectCanceller,
+    id: AnyHashable,
+    cancelInFlight: Bool = false
+  ) -> Effect {
+    canceller.register(self, id: id, cancelInFlight: cancelInFlight)
+  }
+
+  public static func cancel(with canceller: EffectCanceller, id: AnyHashable) -> Effect {
+    return .fireAndForget {
+      canceller.cancel(id: id)
+    }
+  }
+
+  public static func cancel(with canceller: EffectCanceller, ids: AnyHashable...) -> Effect {
+    .cancel(ids: ids)
+  }
+
+  public static func cancel(with canceller: EffectCanceller, ids: [AnyHashable]) -> Effect {
+    .merge(ids.map { Effect.cancel(with: canceller, id: $0) })
+  }
+}
