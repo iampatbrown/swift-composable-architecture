@@ -295,6 +295,12 @@ public final class Store<State, Action> {
     action fromChildAction: @escaping (ChildAction) -> Action
   ) -> Store<ChildState, ChildAction> {
     self.threadCheck(status: .scope)
+    #if swift(>=5.7) && !DEBUG
+    if let childStore = self.reducer.rescope(state: toChildState, action: fromChildAction) {
+      return childStore
+    }
+    #endif
+
     let reducer = ScopedReducer(store: self, state: toChildState, action: fromChildAction)
     let childStore = Store<ChildState, ChildAction>(
       initialState: toChildState(self.state.value),
@@ -538,17 +544,17 @@ public final class Store<State, Action> {
 /// ```
 public typealias StoreOf<R: ReducerProtocol> = Store<R.State, R.Action>
 
-private final class ScopedReducer<State, Action, ChildState, ChildAction>: ReducerProtocol {
-  let store: Store<State, Action>
-  let toChildState: (State) -> ChildState
-  let fromChildAction: (ChildAction) -> Action
+private final class ScopedReducer<ParentState, ParentAction, ChildState, ChildAction>: ReducerProtocol {
+  let store: Store<ParentState, ParentAction>
+  let toChildState: (ParentState) -> ChildState
+  let fromChildAction: (ChildAction) -> ParentAction
   private(set) var isSending = false
 
   @inlinable
   init(
-    store: Store<State, Action>,
-    state toChildState: @escaping (State) -> ChildState,
-    action fromChildAction: @escaping (ChildAction) -> Action
+    store: Store<ParentState, ParentAction>,
+    state toChildState: @escaping (ParentState) -> ChildState,
+    action fromChildAction: @escaping (ChildAction) -> ParentAction
   ) {
     self.store = store
     self.toChildState = toChildState
@@ -569,3 +575,51 @@ private final class ScopedReducer<State, Action, ChildState, ChildAction>: Reduc
     }
   }
 }
+
+#if swift(>=5.7) && !DEBUG
+protocol _ScopedReducer {
+  func rescope<ChildState, ChildAction, NewChildState, NewChildAction>(
+    state toNewChildState: @escaping (ChildState) -> NewChildState,
+    action fromNewChildAction: @escaping (NewChildAction) -> ChildAction
+  ) -> Store<NewChildState, NewChildAction>?
+}
+
+extension ScopedReducer: _ScopedReducer {
+  func rescope<ChildState, ChildAction, NewChildState, NewChildAction>(
+    state toNewChildState: @escaping (ChildState) -> NewChildState,
+    action fromNewChildAction: @escaping (NewChildAction) -> ChildAction
+  ) -> Store<NewChildState, NewChildAction>? {
+    guard
+      let toChildState = self.toChildState as? (ParentState) -> ChildState,
+      let fromChildAction = self.fromChildAction as? (ChildAction) -> ParentAction
+    else { return nil }
+    let toNewChildState = { toNewChildState(toChildState($0)) }
+    let fromNewChildAction = { fromChildAction(fromNewChildAction($0)) }
+    let reducer = ScopedReducer<ParentState, ParentAction, NewChildState, NewChildAction>(
+      store: self.store,
+      state: toNewChildState,
+      action: fromNewChildAction
+    )
+    let childStore = Store<NewChildState, NewChildAction>(
+      initialState: toNewChildState(self.store.state.value),
+      reducer: reducer
+    )
+    childStore.parentCancellable = self.store.state
+      .dropFirst()
+      .sink { [weak childStore] newValue in
+        guard !reducer.isSending else { return }
+        childStore?.state.value = toNewChildState(newValue)
+      }
+    return childStore
+  }
+}
+
+extension ReducerProtocol {
+  func rescope<ChildState, ChildAction>(
+    state toChildState: @escaping (State) -> ChildState,
+    action fromChildAction: @escaping (ChildAction) -> Action
+  ) -> Store<ChildState, ChildAction>? {
+    (self as? any _ScopedReducer)?.rescope(state: toChildState, action: fromChildAction)
+  }
+}
+#endif
