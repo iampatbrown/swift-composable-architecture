@@ -1,3 +1,5 @@
+import OrderedCollections
+
 extension ReducerProtocol {
   /// Embeds a child reducer in a parent domain that works on elements of a collection in parent
   /// state.
@@ -20,7 +22,51 @@ extension ReducerProtocol {
   ) -> _ForEachReducer<Self, ID, Element> {
     _ForEachReducer(
       parent: self,
-      toElementsState: toElementsState,
+      toIds: toElementsState.appending(path: \.ids),
+      toElementState: { id in toElementsState.appending(path: \.[id: id]) },
+      toElementAction: toElementAction,
+      element: element(),
+      file: file,
+      fileID: fileID,
+      line: line
+    )
+  }
+  
+  @inlinable
+  public func forEach<Key: Hashable, Element: ReducerProtocol>(
+    _ toElementsState: WritableKeyPath<State, OrderedDictionary<Key, Element.State>>,
+    action toElementAction: CasePath<Action, (Key, Element.Action)>,
+    @ReducerBuilderOf<Element> _ element: () -> Element,
+    file: StaticString = #file,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> _ForEachReducer<Self, Key, Element> {
+    _ForEachReducer(
+      parent: self,
+      toIds: toElementsState.appending(path: \.keys),
+      toElementState: { key in toElementsState.appending(path: \.[key]) },
+      toElementAction: toElementAction,
+      element: element(),
+      file: file,
+      fileID: fileID,
+      line: line
+    )
+  }
+  
+  @inlinable
+  public func forEach<ID: Hashable, Element: ReducerProtocol>(
+    ids toIds: KeyPath<State, OrderedSet<ID>>,
+    state toElementState: @escaping (ID) -> WritableKeyPath<State, Element.State?>,
+    action toElementAction: CasePath<Action, (ID, Element.Action)>,
+    @ReducerBuilderOf<Element> _ element: () -> Element,
+    file: StaticString = #file,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> _ForEachReducer<Self, ID, Element> {
+    _ForEachReducer(
+      parent: self,
+      toIds: toIds,
+      toElementState: toElementState,
       toElementAction: toElementAction,
       element: element(),
       file: file,
@@ -33,11 +79,16 @@ extension ReducerProtocol {
 public struct _ForEachReducer<
   Parent: ReducerProtocol, ID: Hashable, Element: ReducerProtocol
 >: ReducerProtocol {
+
+  
   @usableFromInline
   let parent: Parent
 
   @usableFromInline
-  let toElementsState: WritableKeyPath<Parent.State, IdentifiedArray<ID, Element.State>>
+  let toIds: KeyPath<Parent.State, OrderedSet<ID>>
+
+  @usableFromInline
+  let toElementState: (ID) -> WritableKeyPath<Parent.State, Element.State?>
 
   @usableFromInline
   let toElementAction: CasePath<Parent.Action, (ID, Element.Action)>
@@ -57,7 +108,8 @@ public struct _ForEachReducer<
   @inlinable
   init(
     parent: Parent,
-    toElementsState: WritableKeyPath<Parent.State, IdentifiedArray<ID, Element.State>>,
+    toIds: KeyPath<Parent.State, OrderedSet<ID>>,
+    toElementState: @escaping (ID) -> WritableKeyPath<Parent.State, Element.State?>,
     toElementAction: CasePath<Parent.Action, (ID, Element.Action)>,
     element: Element,
     file: StaticString,
@@ -65,7 +117,8 @@ public struct _ForEachReducer<
     line: UInt
   ) {
     self.parent = parent
-    self.toElementsState = toElementsState
+    self.toIds = toIds
+    self.toElementState = toElementState
     self.toElementAction = toElementAction
     self.element = element
     self.file = file
@@ -86,7 +139,8 @@ public struct _ForEachReducer<
     into state: inout Parent.State, action: Parent.Action
   ) -> Effect<Parent.Action, Never> {
     guard let (id, elementAction) = self.toElementAction.extract(from: action) else { return .none }
-    if state[keyPath: self.toElementsState][id: id] == nil {
+    let toElementState = self.toElementState(id)
+    if state[keyPath: toElementState] == nil {
       runtimeWarning(
         """
         A "forEach" at "%@:%d" received an action for a missing element.
@@ -119,7 +173,7 @@ public struct _ForEachReducer<
       return .none
     }
     return self.element
-      .reduce(into: &state[keyPath: self.toElementsState][id: id]!, action: elementAction)
+      .reduce(into: &state[keyPath: toElementState]!, action: elementAction)
       .map { self.toElementAction.embed((id, $0)) }
   }
 }

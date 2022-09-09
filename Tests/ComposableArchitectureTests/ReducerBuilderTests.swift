@@ -1,6 +1,7 @@
 // NB: This file contains compile-time tests to ensure reducer builder generic inference is working.
 
 import ComposableArchitecture
+import OrderedCollections
 
 private struct Root: ReducerProtocol {
   struct State {
@@ -8,6 +9,12 @@ private struct Root: ReducerProtocol {
     var optionalFeature: Feature.State?
     var enumFeature: Features.State?
     var features: IdentifiedArrayOf<Feature.State>
+    var moreFeatures: OrderedDictionary<Feature.State.ID, Feature.State>
+    
+    subscript(computedFeature id: Feature.State.ID) -> Feature.State? {
+      get { features[id: id] }
+      set { features[id: id] = newValue }
+    }
   }
 
   enum Action {
@@ -15,6 +22,8 @@ private struct Root: ReducerProtocol {
     case optionalFeature(Feature.Action)
     case enumFeature(Features.Action)
     case features(id: Feature.State.ID, feature: Feature.Action)
+    case moreFeatures(id: Feature.State.ID, feature: Feature.Action)
+    case computedFeatures(id: Feature.State.ID, feature: Feature.Action)
   }
 
   #if swift(>=5.7)
@@ -46,7 +55,19 @@ private struct Root: ReducerProtocol {
 
         Features()
       }
-      .forEach(\.features, action: /Action.features) {
+      .forEach(\State.features, action: /Action.features) {
+        Feature()
+        Feature()
+      }
+      .forEach(\State.moreFeatures, action: /Action.moreFeatures) {
+        Feature()
+        Feature()
+      }
+      .forEach(
+        ids: \State.features.ids,
+        state: { \State.[computedFeature: $0] },
+        action: /Action.computedFeatures
+      ) {
         Feature()
         Feature()
       }
@@ -90,7 +111,19 @@ private struct Root: ReducerProtocol {
 
           Features()
         }
-        .forEach(\.features, action: /Action.features) {
+        .forEach(\State.features, action: /Action.features) {
+          Feature()
+          Feature()
+        }
+        .forEach(\State.moreFeatures, action: /Action.moreFeatures) {
+          Feature()
+          Feature()
+        }
+        .forEach(
+          ids: \State.features.ids,
+          state: { \State.[computedFeature: $0] },
+          action: /Action.computedFeatures
+        ) {
           Feature()
           Feature()
         }
