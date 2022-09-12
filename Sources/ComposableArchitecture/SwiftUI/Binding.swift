@@ -415,3 +415,62 @@ extension BindingAction: CustomDumpReflectable {
     }
   }
 #endif
+
+public protocol ScopedState {
+  associatedtype RootState
+  init(state: RootState)
+  func set(into state: inout RootState)
+}
+
+extension ViewStore where State: ScopedState, Action: BindableAction,
+Action.State == State.RootState {
+  public func binding<Value: Equatable>(
+    _ keyPath: WritableKeyPath<State, BindableState<Value>>,
+    file: StaticString = #file,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> Binding<Value> {
+    self.binding(
+      get: { $0[keyPath: keyPath].wrappedValue },
+      send: { value in
+
+        let setRoot: (inout State.RootState) -> Void = { root in
+          var scope = State(state: root)
+          scope[keyPath: keyPath].wrappedValue = value
+          scope.set(into: &root)
+        }
+
+        return .binding(
+          .init(
+            keyPath: \.self,
+            set: setRoot,
+            value: value,
+            valueIsEqualTo: { $0 as? Value == value }
+          )
+        )
+      }
+    )
+  }
+}
+
+public protocol ScopedAction {
+  associatedtype RootAction
+  static func root(action: Self) -> RootAction
+}
+
+extension BindingAction where Root: ScopedState {
+  public var root: BindingAction<Root.RootState> {
+    let setRoot: (inout Root.RootState) -> Void = { root in
+      var scope = Root(state: root)
+      self.set(&scope)
+      scope.set(into: &root)
+    }
+
+    return .init(
+      keyPath: \.self,
+      set: setRoot,
+      value: self.value,
+      valueIsEqualTo: self.valueIsEqualTo
+    )
+  }
+}
