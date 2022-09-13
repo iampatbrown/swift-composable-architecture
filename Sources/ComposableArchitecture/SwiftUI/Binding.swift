@@ -415,3 +415,54 @@ extension BindingAction: CustomDumpReflectable {
     }
   }
 #endif
+
+public protocol Bindable {
+  associatedtype RootState
+  init(state: RootState)
+  func set(into state: inout RootState)
+}
+
+extension BindingAction {
+  public static func pullback<State: Bindable>(_ action: BindingAction<State>) -> Self
+  where State.RootState == Root {
+    let setRoot: (inout State.RootState) -> Void = { root in
+      var state = State(state: root)
+      action.set(&state)
+      state.set(into: &root)
+    }
+
+    return .init(
+      keyPath: \.self,
+      set: setRoot,
+      value: action.value,
+      valueIsEqualTo: action.valueIsEqualTo
+    )
+  }
+}
+
+extension ViewStore where State: Bindable, Action: BindableAction, Action.State == State.RootState {
+  public func binding<Value: Equatable>(
+    _ keyPath: WritableKeyPath<State, BindableState<Value>>,
+    file: StaticString = #file,
+    fileID: StaticString = #fileID,
+    line: UInt = #line
+  ) -> Binding<Value> {
+    self.binding(
+      get: { $0[keyPath: keyPath].wrappedValue },
+      send: { value in
+        #if DEBUG
+        let debugger = BindableActionViewStoreDebugger(
+          value: value, bindableActionType: Action.self, file: file, fileID: fileID, line: line
+        )
+        let set: (inout State) -> Void = {
+          $0[keyPath: keyPath].wrappedValue = value
+          debugger.wasCalled = true
+        }
+        #else
+        let set: (inout State) -> Void = { $0[keyPath: keyPath].wrappedValue = value }
+        #endif
+        return .binding(.pullback(.init(keyPath: keyPath, set: set, value: value)))
+      }
+    )
+  }
+}
