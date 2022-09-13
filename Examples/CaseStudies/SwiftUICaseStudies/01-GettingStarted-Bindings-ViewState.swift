@@ -48,7 +48,7 @@ struct BindingViewState: ReducerProtocol {
 struct BindingViewStateView: View {
   let store: StoreOf<BindingViewState>
 
-  struct ViewState: Equatable, ScopedState {
+  struct ViewState: Equatable {
     @BindableState var sliderValue: Double
     @BindableState var stepCount: Int
     @BindableState var text: String
@@ -60,17 +60,10 @@ struct BindingViewStateView: View {
       self.text = state.text
       self.toggleIsOn = state.toggleIsOn
     }
-
-    func set(into state: inout BindingViewState.State) {
-      state.sliderValue = self.sliderValue
-      state.stepCount = self.stepCount
-      state.text = self.text
-      state.toggleIsOn = self.toggleIsOn
-    }
   }
 
   var body: some View {
-    WithViewStore(self.store, observe: ViewState.init) { viewStore in
+    WithViewStore(self.store, observe: { $0 }) { viewStore in
       Form {
         Section {
           AboutView(readMe: readMe)
