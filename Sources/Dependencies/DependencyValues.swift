@@ -59,6 +59,10 @@ public struct DependencyValues: Sendable {
   @TaskLocal static var isSetting = false
   @TaskLocal static var currentDependency = CurrentDependency()
 
+  @Isolated public static var defaultLiveValues = Self()
+  @Isolated public static var defaultPreviewValues = Self()
+  @Isolated public static var defaultTestValues = Self()
+
   /// Updates a single dependency for the duration of a synchronous operation.
   ///
   /// For example, if you wanted to force the ``DependencyValues/date`` dependency to be a
@@ -291,14 +295,14 @@ public struct DependencyValues: Sendable {
             }
             return Key.testValue
           }
-          return value
+          return Self.defaultLiveValues[key, default: value]
         case .preview:
-          return Key.previewValue
+          return Self.defaultPreviewValues[key, default: Key.testValue]
         case .test:
           var currentDependency = Self.currentDependency
           currentDependency.name = function
           return Self.$currentDependency.withValue(currentDependency) {
-            Key.testValue
+            Self.defaultTestValues[key, default: Key.testValue]
           }
         }
       }
@@ -306,6 +310,22 @@ public struct DependencyValues: Sendable {
     }
     set {
       self.storage[ObjectIdentifier(key)] = AnySendable(newValue)
+    }
+  }
+
+  private subscript<Key: TestDependencyKey>(
+    key: Key.Type,
+    default defaultValue: @autoclosure () -> Key.Value
+  ) -> Key.Value {
+    mutating get {
+      let id = ObjectIdentifier(key)
+      if let dependency = self.storage[id]?.base as? Key.Value {
+        return dependency
+      } else {
+        let dependency = defaultValue()
+        self.storage[id] = AnySendable(dependency)
+        return dependency
+      }
     }
   }
 }
