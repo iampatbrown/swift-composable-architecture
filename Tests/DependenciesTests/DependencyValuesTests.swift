@@ -18,17 +18,8 @@ func incrementedValue() -> Int {
   return value
 }
 
-private struct Foo: TestDependencyKey {
-  @Dependency(\.bar) var bar
-  var value: Int
-
-  static var testValue: Foo {
-    Foo(value: incrementedValue())
-  }
-}
-
 private struct Bar: TestDependencyKey {
-  @Dependency(\.foo) var foo
+  @Dependency(\.baz) var baz
   var value: Int
 
   static var testValue: Bar {
@@ -36,15 +27,24 @@ private struct Bar: TestDependencyKey {
   }
 }
 
-extension DependencyValues {
-  fileprivate var foo: Foo {
-    get { self[Foo.self] }
-    set { self[Foo.self] = newValue }
-  }
+private struct Baz: TestDependencyKey {
+  @Dependency(\.bar) var bar
+  var value: Int
 
+  static var testValue: Baz {
+    Baz(value: incrementedValue())
+  }
+}
+
+extension DependencyValues {
   fileprivate var bar: Bar {
     get { self[Bar.self] }
     set { self[Bar.self] = newValue }
+  }
+
+  fileprivate var baz: Baz {
+    get { self[Baz.self] }
+    set { self[Baz.self] = newValue }
   }
 }
 
@@ -115,15 +115,15 @@ final class DependencyValuesTests: XCTestCase {
   }
 
   func testDependencyDefaults() {
-    struct Baz {
-      @Dependency(\.foo) var foo
+    struct Foo {
       @Dependency(\.bar) var bar
+      @Dependency(\.baz) var baz
     }
-    let baz = Baz()
-    XCTAssertEqual(baz.foo.value, 0)
-    XCTAssertEqual(baz.bar.value, 1)
-    XCTAssertEqual(baz.foo.bar.value, 1)
-    XCTAssertEqual(baz.bar.foo.value, 0)
+    let foo = Foo()
+    XCTAssertEqual(foo.bar.value, 0)
+    XCTAssertEqual(foo.baz.value, 1)
+    XCTAssertEqual(foo.bar.baz.value, 1)
+    XCTAssertEqual(foo.baz.bar.value, 0)
   }
 }
 
