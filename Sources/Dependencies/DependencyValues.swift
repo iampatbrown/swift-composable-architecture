@@ -237,7 +237,8 @@ public struct DependencyValues: Sendable {
     line: UInt = #line
   ) -> Key.Value where Key.Value: Sendable {
     get {
-      guard let dependency = self.storage[ObjectIdentifier(key)]?.base as? Key.Value
+      let id = ObjectIdentifier(key)
+      guard let dependency = self.storage[id]?.base as? Key.Value
       else {
         let context =
           self.storage[ObjectIdentifier(DependencyContextKey.self)]?.base as? DependencyContext
@@ -245,8 +246,12 @@ public struct DependencyValues: Sendable {
 
         switch context {
         case .live:
-          guard let value = _liveValue(Key.self) as? Key.Value
-          else {
+          if let value = Self.defaultLiveValues.storage[id]?.base as? Key.Value {
+            return value
+          } else if let value = _liveValue(Key.self) as? Key.Value {
+            Self.defaultLiveValues.storage[id] = AnySendable(value)
+            return value
+          } else {
             // TODO: add test coverage to this logic
             if !Self.isSetting {
               var dependencyDescription = ""
@@ -295,7 +300,6 @@ public struct DependencyValues: Sendable {
             }
             return Key.testValue
           }
-          return Self.defaultLiveValues[key, default: value]
         case .preview:
           return Self.defaultPreviewValues[key, default: Key.previewValue]
         case .test:
