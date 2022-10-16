@@ -1,5 +1,3 @@
-// Copyright © 2022 Home Delivery Service. See LICENSE file.
-
 import Foundation
 
 @propertyWrapper
