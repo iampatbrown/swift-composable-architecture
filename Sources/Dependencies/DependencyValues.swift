@@ -297,7 +297,7 @@ public struct DependencyValues: Sendable {
           }
           return Self.defaultLiveValues[key, default: value]
         case .preview:
-          return Self.defaultPreviewValues[key, default: Key.testValue]
+          return Self.defaultPreviewValues[key, default: Key.previewValue]
         case .test:
           var currentDependency = Self.currentDependency
           currentDependency.name = function
