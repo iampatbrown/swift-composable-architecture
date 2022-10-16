@@ -12,6 +12,42 @@ private enum TestKey: TestDependencyKey {
   static let testValue = 42
 }
 
+var value = 0
+func incrementedValue() -> Int {
+  defer { value += 1 }
+  return value
+}
+
+private struct Foo: TestDependencyKey {
+  @Dependency(\.bar) var bar
+  var value: Int
+
+  static var testValue: Foo {
+    Foo(value: incrementedValue())
+  }
+}
+
+private struct Bar: TestDependencyKey {
+  @Dependency(\.foo) var foo
+  var value: Int
+
+  static var testValue: Bar {
+    Bar(value: incrementedValue())
+  }
+}
+
+extension DependencyValues {
+  fileprivate var foo: Foo {
+    get { self[Foo.self] }
+    set { self[Foo.self] = newValue }
+  }
+
+  fileprivate var bar: Bar {
+    get { self[Bar.self] }
+    set { self[Bar.self] = newValue }
+  }
+}
+
 final class DependencyValuesTests: XCTestCase {
   func testMissingLiveValue() {
     #if DEBUG
@@ -76,6 +112,18 @@ final class DependencyValuesTests: XCTestCase {
       XCTAssertEqual(date, someDate)
       XCTAssertNotEqual(DependencyValues._current.date.now, someDate)
     }
+  }
+
+  func testDependencyDefaults() {
+    struct Baz {
+      @Dependency(\.foo) var foo
+      @Dependency(\.bar) var bar
+    }
+    let baz = Baz()
+    XCTAssertEqual(baz.foo.value, 0)
+    XCTAssertEqual(baz.bar.value, 1)
+    XCTAssertEqual(baz.foo.bar.value, 1)
+    XCTAssertEqual(baz.bar.foo.value, 0)
   }
 }
 
