@@ -52,8 +52,8 @@ extension EffectPublisher {
 
             let cancellationSubject = PassthroughSubject<Void, Never>()
 
-            var cancellationCancellable: AnyCancellable!
-            cancellationCancellable = AnyCancellable {
+            var cancellationCancellable: _Cancellable!
+            cancellationCancellable = _Cancellable {
               _cancellablesLock.sync {
                 cancellationSubject.send(())
                 cancellationSubject.send(completion: .finished)
@@ -200,12 +200,12 @@ public func withTaskCancellation<T: Sendable>(
   operation: @Sendable @escaping () async throws -> T
 ) async rethrows -> T {
   let id = _CancelToken(id: id)
-  let (cancellable, task) = _cancellablesLock.sync { () -> (AnyCancellable, Task<T, Error>) in
+  let (cancellable, task) = _cancellablesLock.sync { () -> (_Cancellable, Task<T, Error>) in
     if cancelInFlight {
       _cancellationCancellables[id]?.forEach { $0.cancel() }
     }
     let task = Task { try await operation() }
-    let cancellable = AnyCancellable { task.cancel() }
+    let cancellable = _Cancellable { task.cancel() }
     _cancellationCancellables[id, default: []].insert(cancellable)
     return (cancellable, task)
   }
@@ -277,7 +277,32 @@ extension Task where Success == Never, Failure == Never {
   }
 }
 
-@_spi(Internals) public var _cancellationCancellables: [_CancelToken: Set<AnyCancellable>] = [:]
+@_spi(Internals) public final class _Cancellable: Hashable {
+  private var _cancel: (() -> Void)?
+
+  public init(_ cancel: @escaping () -> Void) {
+    self._cancel = cancel
+  }
+
+  deinit {
+    _cancel?()
+  }
+
+  public func cancel() {
+    self._cancel?()
+    self._cancel = nil
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(self))
+  }
+
+  public static func == (lhs: _Cancellable, rhs: _Cancellable) -> Bool {
+    return lhs === rhs
+  }
+}
+
+@_spi(Internals) public var _cancellationCancellables: [_CancelToken: Set<_Cancellable>] = [:]
 @_spi(Internals) public let _cancellablesLock = NSRecursiveLock()
 
 @rethrows
