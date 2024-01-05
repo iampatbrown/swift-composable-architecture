@@ -108,17 +108,20 @@ public struct ForEachStore<
   {
     self.data = store.withState { $0 }
     self.content = WithViewStore(
-      store,
-      observe: { $0 },
+      store: store,
       removeDuplicates: { areOrderedSetsDuplicates($0.ids, $1.ids) }
     ) { viewStore in
       ForEach(viewStore.state, id: viewStore.state.id) { element in
         let id = element[keyPath: viewStore.state.id]
-        //var element = element
+        var element = element
         content(
           store.scope(
             id: store.id(state: \.[id:id]!, action: \.[id:id]),
-            state: OptionalToState(currentValue: element, keyPath: \.[id: id]),
+            state: _ClosureToState {
+              element = $0[id: id] ?? element
+              return element
+            },
+//            state: OptionalToState(currentValue: element, keyPath: \.[id: id]),
             action: { .element(id: id, action: $0) },
             isInvalid: { !$0.ids.contains(id) }
           )

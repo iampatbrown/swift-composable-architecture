@@ -132,6 +132,12 @@ import SwiftUI
 /// case. Further, all actions sent to the store and all scopes (see ``scope(state:action:)-90255``)
 /// of the store are also checked to make sure that work is performed on the main thread.
 public final class Store<State, Action> {
+  
+  var useCache = true
+  var cachedState: State?
+  var stateFromParent: () -> State?
+  var cacheCancellable: AnyCancellable?
+  
   private var canCacheChildren = true
   private var children: [ScopeID<State, Action>: AnyObject] = [:]
   var _isInvalidated = { false }
@@ -381,6 +387,7 @@ public final class Store<State, Action> {
     self.scope(
       id: self.id(state: state, action: action),
       state: self.toState.appending(state),
+      stateFromParent: { [weak self] in self?.currentState[keyPath: state] },
       action: { action($0) },
       isInvalid: nil
     )
@@ -413,6 +420,7 @@ public final class Store<State, Action> {
     self.scope(
       id: nil,
       state: self.toState.appending(_ClosureToState(toChildState)),
+      stateFromParent: { [weak self] in self.map { toChildState($0.currentState) } },
       action: fromChildAction,
       isInvalid: nil
     )
@@ -421,11 +429,28 @@ public final class Store<State, Action> {
   @_spi(Internals)
   public var currentState: State {
     threadCheck(status: .state)
+ 
+    guard useCache else {
+      return _currentState
+    }
+    
+    if let cachedState {
+      return cachedState
+    } else if let state = stateFromParent() {
+      cachedState = state
+      return state
+    } else {
+      let state = _currentState
+      cachedState = state
+      return state
+    }
+  }
+  
+  private var _currentState: State {
     func open<T: _ToState>(_ toState: T) -> State {
       toState(self.rootStore.state as! T.Root) as! State
     }
     let toState = self.toState as! any _ToState
-
     return open(toState)
   }
 
@@ -441,6 +466,7 @@ public final class Store<State, Action> {
     self.scope(
       id: id,
       state: self.toState.appending(state),
+      stateFromParent: { [weak self] in self.map { state($0.currentState) } },
       action: fromChildAction,
       isInvalid: isInvalid
     )
@@ -457,6 +483,7 @@ public final class Store<State, Action> {
     self.scope(
       id: id,
       state: self.toState.appending(state),
+      stateFromParent: { [weak self] in self?.currentState[keyPath: state] },
       action: fromChildAction,
       isInvalid: isInvalid
     )
@@ -466,6 +493,7 @@ public final class Store<State, Action> {
     func scope<ChildState, ChildAction>(
       id: ScopeID<State, Action>?,
       state: any _PartialToState<ChildState>,
+      stateFromParent: @escaping () -> ChildState?,
       action fromChildAction: @escaping (ChildAction) -> Action,
       isInvalid: ((State) -> Bool)?
     ) -> Store<ChildState, ChildAction>
@@ -482,6 +510,7 @@ public final class Store<State, Action> {
     let childStore = Store<ChildState, ChildAction>(
       rootStore: self.rootStore,
       toState: state,
+      stateFromParent: stateFromParent,
       fromAction: { [fromAction] in fromAction(fromChildAction($0)) }
     )
     childStore._isInvalidated =
@@ -516,12 +545,19 @@ public final class Store<State, Action> {
   private init(
     rootStore: RootStore,
     toState: any _PartialToState<State>,
+    stateFromParent: @escaping () -> State?,
     fromAction: @escaping (Action) -> Any
   ) {
     defer { Logger.shared.log("\(storeTypeName(of: self)).init") }
     self.rootStore = rootStore
+    self.stateFromParent = stateFromParent
     self.toState = toState
     self.fromAction = fromAction
+    if useCache {
+      cacheCancellable = rootStore.didSet.dropFirst().sink { [weak self] in
+        self?.cachedState = nil
+      }
+    }
   }
 
   convenience init<R: Reducer>(
@@ -536,6 +572,7 @@ public final class Store<State, Action> {
     self.init(
       rootStore: rootStore,
       toState: \State.self,
+      stateFromParent: { nil },
       fromAction: { $0 }
     )
   }

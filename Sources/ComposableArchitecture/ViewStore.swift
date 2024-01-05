@@ -67,12 +67,13 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   // won't be synthesized automatically. To work around issues on iOS 13 we explicitly declare it.
   public private(set) lazy var objectWillChange = ObservableObjectPublisher()
   private let _state: CurrentValueRelay<ViewState>
-
+  private let _send: (ViewAction) -> StoreTask
+  
   private var viewCancellable: AnyCancellable?
   #if DEBUG
     private var storeTypeName: String
   #endif
-  let store: Store<ViewState, ViewAction>
+//  let store: Store<ViewState, ViewAction>
 
   /// Initializes a view store from a store which observes changes to state.
   ///
@@ -126,13 +127,15 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       self.storeTypeName = ComposableArchitecture.storeTypeName(of: store)
       Logger.shared.log("View\(self.storeTypeName).init")
     #endif
-    self.store = store.scope(state: toViewState, action: fromViewAction)
-    self._state = CurrentValueRelay(self.store.currentState)
-    self.viewCancellable = self.store.rootStore.didSet
-      .compactMap { [weak self] in self?.store.currentState }
-      .removeDuplicates(by: isDuplicate)
+//    self.store = store.scope(state: toViewState, action: fromViewAction)
+    self._send = { store.send(fromViewAction($0)) }
+    self._state = CurrentValueRelay(toViewState(store.currentState))
+    self.viewCancellable = store.rootStore.didSet
       .dropFirst()
+      .compactMap { [weak store] in store.map { toViewState($0.currentState) } }
+      .removeDuplicates(by: isDuplicate)
       .sink { [weak self] in
+        print("Here", $0)
         self?.objectWillChange.send()
         self?._state.value = $0
       }
@@ -143,7 +146,8 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       self.storeTypeName = viewStore.storeTypeName
       Logger.shared.log("View\(self.storeTypeName).init")
     #endif
-    self.store = viewStore.store
+//    self.store = viewStore.store
+    self._send = viewStore.send
     self._state = viewStore._state
     self.viewCancellable = viewStore.objectWillChange.sink { [weak self] in
       self?.objectWillChange.send()
@@ -217,7 +221,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   ///   sending the action.
   @discardableResult
   public func send(_ action: ViewAction) -> StoreTask {
-    self.store.send(action)
+    self._send(action)
   }
 
   /// Sends an action to the store with a given animation.

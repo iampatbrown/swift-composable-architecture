@@ -8,7 +8,7 @@ final class CurrentValueRelay<Output>: Publisher {
   private var subscriptions: [Subscription<AnySubscriber<Output, Failure>>] = []
 
   var value: Output {
-    get { self.currentValue }
+    _read { yield self.currentValue }
     set { self.send(newValue) }
   }
 
