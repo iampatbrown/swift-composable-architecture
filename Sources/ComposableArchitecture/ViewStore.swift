@@ -135,7 +135,6 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
       .compactMap { [weak store] in store.map { toViewState($0.currentState) } }
       .removeDuplicates(by: isDuplicate)
       .sink { [weak self] in
-        print("Here", $0)
         self?.objectWillChange.send()
         self?._state.value = $0
       }
