@@ -68,6 +68,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
   public private(set) lazy var objectWillChange = ObservableObjectPublisher()
   private let _state: CurrentValueRelay<ViewState>
   private let _send: (ViewAction) -> StoreTask
+  let _isInvalidated: () -> Bool
   
   private var viewCancellable: AnyCancellable?
   #if DEBUG
@@ -130,6 +131,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
 //    self.store = store.scope(state: toViewState, action: fromViewAction)
     self._send = { store.send(fromViewAction($0)) }
     self._state = CurrentValueRelay(toViewState(store.currentState))
+    self._isInvalidated = store._isInvalidated
     self.viewCancellable = store.rootStore.didSet
       .dropFirst()
       .compactMap { [weak store] in store.map { toViewState($0.currentState) } }
@@ -148,6 +150,7 @@ public final class ViewStore<ViewState, ViewAction>: ObservableObject {
 //    self.store = viewStore.store
     self._send = viewStore.send
     self._state = viewStore._state
+    self._isInvalidated = viewStore._isInvalidated
     self.viewCancellable = viewStore.objectWillChange.sink { [weak self] in
       self?.objectWillChange.send()
       self?._state.value = viewStore.state

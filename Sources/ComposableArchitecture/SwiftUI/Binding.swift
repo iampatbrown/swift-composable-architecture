@@ -291,7 +291,7 @@ extension ViewStore where ViewAction: BindableAction, ViewAction.State == ViewSt
             value: value,
             bindableActionType: ViewAction.self,
             context: .bindingState,
-            isInvalidated: self.store._isInvalidated,
+            isInvalidated: self._isInvalidated,
             fileID: bindingState.fileID,
             line: bindingState.line
           )
