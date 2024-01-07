@@ -27,18 +27,26 @@ final class CurrentValueRelay<Output>: Publisher {
   func receive<S: Subscriber>(subscriber: S) where S.Input == Output, S.Failure == Never {
     let subscription = Subscription(upstream: self, downstream: AnySubscriber(subscriber))
     self.lock.sync {
-      self.subscriptions.append(WeakSubscription(subscription: subscription))
+      self.subscriptions.append(WeakSubscription(object: subscription))
     }
     subscriber.receive(subscription: subscription)
     subscription.forwardValueToBuffer(self.currentValue)
   }
 
   func send(_ value: Output) {
+    self.currentValue = value
+    var hasCancelledSubscription = false
+    for subscription in self.subscriptions {
+      if let subscription = subscription.object {
+        subscription.forwardValueToBuffer(value)
+      } else {
+        hasCancelledSubscription = true
+      }
+    }
+    guard hasCancelledSubscription else { return }
     self.lock.sync {
-      self.currentValue = value
-      // NB: Send values and remove deallocated subscriptions in single iteration
       self.subscriptions.removeAll {
-        $0.subscription?.forwardValueToBuffer(value) == nil
+        $0.object == nil
       }
     }
   }
@@ -69,6 +77,6 @@ extension CurrentValueRelay {
   }
 
   private struct WeakSubscription {
-    weak var subscription: Subscription?
+    weak var object: Subscription?
   }
 }
