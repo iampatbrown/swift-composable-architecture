@@ -31,19 +31,15 @@ final class CurrentValueRelay<Output>: Publisher {
     }
     subscriber.receive(subscription: subscription)
     subscription.forwardValueToBuffer(self.currentValue)
-    Task { [weak self] in self?.removeCancelledSubscriptions() }
   }
 
   func send(_ value: Output) {
-    self.currentValue = value
-    for subscription in self.subscriptions {
-      subscription.forwardValueToBuffer(value)
-    }
-  }
-
-  private func removeCancelledSubscriptions() {
     self.lock.sync {
-      self.subscriptions.removeAll(where: { $0.subscription == nil })
+      self.currentValue = value
+      // NB: Send values and remove deallocated subscriptions in single iteration
+      self.subscriptions.removeAll {
+        $0.subscription?.forwardValueToBuffer(value) == nil
+      }
     }
   }
 }
@@ -74,8 +70,5 @@ extension CurrentValueRelay {
 
   private struct WeakSubscription {
     weak var subscription: Subscription?
-    func forwardValueToBuffer(_ value: Output) {
-      self.subscription?.forwardValueToBuffer(value)
-    }
   }
 }
