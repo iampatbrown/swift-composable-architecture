@@ -214,7 +214,7 @@ final class OptionalToState<Root, Wrapped>: _ToState {
     self.keyPath = keyPath
   }
 
-  @inlinable @inline(__always)
+  @inlinable
   func callAsFunction(_ root: Root) -> Wrapped {
     self.currentValue = root[keyPath: self.keyPath] ?? self.currentValue
     return self.currentValue

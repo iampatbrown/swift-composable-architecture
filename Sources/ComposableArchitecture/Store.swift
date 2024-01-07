@@ -422,7 +422,6 @@ public final class Store<State, Action> {
   }
 
   @_spi(Internals)
-  @inline(__always)
   public var currentState: State {
     threadCheck(status: .state)
     func open<T: _ToState>(_ toState: T) -> State {
@@ -902,7 +901,7 @@ public class _CachingToState<Base: _PartialToState>: _PartialToState {
 }
 
 extension _CachingToState: _ToState where Base: _ToState {
-  @inlinable @inline(__always)
+  @inlinable
   public func callAsFunction(_ root: Base.Root) -> Base.Value {
     guard let rootID = rootID() else {
       return base(root)
