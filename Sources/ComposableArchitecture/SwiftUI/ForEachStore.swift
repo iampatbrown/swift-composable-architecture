@@ -108,8 +108,7 @@ public struct ForEachStore<
   {
     self.data = store.withState { $0 }
     self.content = WithViewStore(
-      store,
-      observe: { $0 },
+      store: store,
       removeDuplicates: { areOrderedSetsDuplicates($0.ids, $1.ids) }
     ) { viewStore in
       ForEach(viewStore.state, id: viewStore.state.id) { element in
@@ -164,8 +163,7 @@ public struct ForEachStore<
   {
     self.data = store.withState { $0 }
     self.content = WithViewStore(
-      store,
-      observe: { $0 },
+      store: store,
       removeDuplicates: { areOrderedSetsDuplicates($0.ids, $1.ids) }
     ) { viewStore in
       ForEach(viewStore.state, id: viewStore.state.id) { element in
@@ -202,7 +200,9 @@ extension Case {
 }
 
 final class OptionalToState<Root, Wrapped>: _ToState {
+  @usableFromInline
   var currentValue: Wrapped
+  @usableFromInline
   let keyPath: KeyPath<Root, Wrapped?>
 
   @inlinable

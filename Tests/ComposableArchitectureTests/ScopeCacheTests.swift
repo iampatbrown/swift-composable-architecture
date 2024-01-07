@@ -9,7 +9,7 @@ class ScopeCacheTests: XCTestCase {
     let childStore = store.scope(state: \.child, action: \.child)
     let unwrappedChildStore = childStore.scope(
       id: childStore.id(state: \.!, action: \.self),
-      state: ToState { $0! },
+      state: _ClosureToState { $0! },
       action: { $0 },
       isInvalid: { $0 == nil }
     )

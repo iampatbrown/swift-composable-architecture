@@ -132,6 +132,7 @@ import SwiftUI
 /// case. Further, all actions sent to the store and all scopes (see ``scope(state:action:)-90255``)
 /// of the store are also checked to make sure that work is performed on the main thread.
 public final class Store<State, Action> {
+  private var cachesScopedState = true
   private var canCacheChildren = true
   private var children: [ScopeID<State, Action>: AnyObject] = [:]
   var _isInvalidated = { false }
@@ -481,7 +482,7 @@ public final class Store<State, Action> {
 
     let childStore = Store<ChildState, ChildAction>(
       rootStore: self.rootStore,
-      toState: state,
+      toState: cachesScopedState ? state.cachingValue { [weak rootStore] in rootStore?.stateID } : state,
       fromAction: { [fromAction] in fromAction(fromChildAction($0)) }
     )
     childStore._isInvalidated =
@@ -870,11 +871,53 @@ public struct _ClosureToState<Root, Value>: _ToState {
   @usableFromInline
   let toState: (Root) -> Value
   @inlinable
-  init(_ toState: @escaping (Root) -> Value) {
+  @_spi(Internals) public init(_ toState: @escaping (Root) -> Value) {
     self.toState = toState
   }
   @inlinable
   public func callAsFunction(_ root: Root) -> Value {
     self.toState(root)
+  }
+}
+
+public class _CachingToState<Base: _PartialToState>: _PartialToState {
+  public typealias Value = Base.Value
+  @usableFromInline
+  let base: Base
+  @usableFromInline
+  var cachedValue: Value?
+  @usableFromInline
+  var lastID: Int?
+  @usableFromInline
+  var rootID: () -> Int?
+
+  @inlinable
+  init(_ base: Base, rootID: @escaping () -> Int?) {
+    self.base = base
+    self.rootID = rootID
+  }
+}
+
+extension _CachingToState: _ToState where Base: _ToState {
+  @inlinable
+  public func callAsFunction(_ root: Base.Root) -> Base.Value {
+    guard let rootID = rootID() else {
+      return base(root)
+    }
+    defer { lastID = rootID }
+    if let cachedValue, lastID == rootID {
+      return cachedValue
+    } else {
+      let value = base(root)
+      cachedValue = value
+      return value
+    }
+  }
+}
+
+extension _PartialToState {
+  @usableFromInline
+  func cachingValue(rootID: @escaping () -> Int?) -> any _PartialToState<Value> {
+    _CachingToState(self, rootID: rootID)
   }
 }

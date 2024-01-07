@@ -10,9 +10,11 @@ public final class RootStore {
   private let reducer: any Reducer
   private(set) var state: Any {
     didSet {
+      stateID &+= 1
       didSet.send(())
     }
   }
+  private(set) var stateID = 0
 
   init<State, Action>(
     initialState: State,
