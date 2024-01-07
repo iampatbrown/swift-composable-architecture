@@ -284,6 +284,24 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
     )
   }
 
+  public init<State, Action>(
+    _ store: Store<State, Action>,
+    observe toViewState: KeyPath<State, ViewState>,
+    send fromViewAction: CaseKeyPath<Action, ViewAction>,
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool,
+    @ViewBuilder content: @escaping (_ viewStore: ViewStore<ViewState, ViewAction>) -> Content,
+    file: StaticString = #fileID,
+    line: UInt = #line
+  ) {
+    self.init(
+      store: store.scope(state: toViewState, action: fromViewAction),
+      removeDuplicates: isDuplicate,
+      content: content,
+      file: file,
+      line: line
+    )
+  }
+
   /// Initializes a structure that transforms a ``Store`` into an observable ``ViewStore`` in order
   /// to compute views from state.
   ///
@@ -366,6 +384,23 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
   ) {
     self.init(
       store: store.scope(state: toViewState, action: { $0 }),
+      removeDuplicates: isDuplicate,
+      content: content,
+      file: file,
+      line: line
+    )
+  }
+  
+  public init<State>(
+    _ store: Store<State, ViewAction>,
+    observe toViewState: KeyPath<State, ViewState>,
+    removeDuplicates isDuplicate: @escaping (_ lhs: ViewState, _ rhs: ViewState) -> Bool,
+    @ViewBuilder content: @escaping (_ viewStore: ViewStore<ViewState, ViewAction>) -> Content,
+    file: StaticString = #fileID,
+    line: UInt = #line
+  ) {
+    self.init(
+      store: store.scope(id: nil, state: toViewState, action: { $0 }, isInvalid: nil),
       removeDuplicates: isDuplicate,
       content: content,
       file: file,
@@ -462,6 +497,23 @@ extension WithViewStore where ViewState: Equatable, Content: View {
       line: line
     )
   }
+  
+  public init<State, Action>(
+    _ store: Store<State, Action>,
+    observe toViewState: KeyPath<State, ViewState>,
+    send fromViewAction: CaseKeyPath<Action, ViewAction>,
+    @ViewBuilder content: @escaping (_ viewStore: ViewStore<ViewState, ViewAction>) -> Content,
+    file: StaticString = #fileID,
+    line: UInt = #line
+  ) {
+    self.init(
+      store: store.scope(state: toViewState, action: fromViewAction),
+      removeDuplicates: ==,
+      content: content,
+      file: file,
+      line: line
+    )
+  }
 
   /// Initializes a structure that transforms a ``Store`` into an observable ``ViewStore`` in order
   /// to compute views from state.
@@ -542,6 +594,22 @@ extension WithViewStore where ViewState: Equatable, Content: View {
   ) {
     self.init(
       store: store.scope(state: toViewState, action: { $0 }),
+      removeDuplicates: ==,
+      content: content,
+      file: file,
+      line: line
+    )
+  }
+  
+  public init<State>(
+    _ store: Store<State, ViewAction>,
+    observe toViewState: KeyPath<State, ViewState>,
+    @ViewBuilder content: @escaping (_ viewStore: ViewStore<ViewState, ViewAction>) -> Content,
+    file: StaticString = #fileID,
+    line: UInt = #line
+  ) {
+    self.init(
+      store: store.scope(id: nil, state: toViewState, action: { $0 }, isInvalid: nil),
       removeDuplicates: ==,
       content: content,
       file: file,
