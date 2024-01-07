@@ -400,7 +400,7 @@ public struct WithViewStore<ViewState, ViewAction, Content: View>: View {
     line: UInt = #line
   ) {
     self.init(
-      store: store.scope(id: nil, state: toViewState, action: { $0 }, isInvalid: nil),
+      store: store.scope(state: toViewState, action: \.self),
       removeDuplicates: isDuplicate,
       content: content,
       file: file,
@@ -609,7 +609,7 @@ extension WithViewStore where ViewState: Equatable, Content: View {
     line: UInt = #line
   ) {
     self.init(
-      store: store.scope(id: nil, state: toViewState, action: { $0 }, isInvalid: nil),
+      store: store.scope(state: toViewState, action: \.self),
       removeDuplicates: ==,
       content: content,
       file: file,
