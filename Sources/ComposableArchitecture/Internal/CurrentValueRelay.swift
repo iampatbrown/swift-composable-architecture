@@ -103,7 +103,7 @@ public final class CurrentValueRelay<Output>: Publisher {
     }
 
     func hash(into hasher: inout Hasher) {
-      ObjectIdentifier(self).hash(into: &hasher)
+      hasher.combine(ObjectIdentifier(self))
     }
 
     static func == (lhs: Conduit, rhs: Conduit) -> Bool {

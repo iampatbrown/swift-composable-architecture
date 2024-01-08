@@ -4,8 +4,8 @@ import ComposableArchitecture
 import Foundation
 
 let currentValueRelaySuite = BenchmarkSuite(name: "CurrentValueRelay") { suite in
-  typealias Relay<Output> = CurrentValueSubject<Output, Never>
-//  typealias Relay<Output> = CurrentValueRelay<Output>
+//  typealias Relay<Output> = CurrentValueSubject<Output, Never>
+  typealias Relay<Output> = CurrentValueRelay<Output>
 
 //  for subscriberCount in 1...5 {
 //    do {
