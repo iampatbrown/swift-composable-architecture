@@ -89,7 +89,7 @@ public final class CurrentValueRelay<Output>: Publisher {
     }
 
     func request(_ demand: Subscribers.Demand) {
-      precondition(demand != .none)
+      precondition(demand > 0, "Demand must be greater than zero")
       self.lock.sync {
         guard let downstream else { return }
         self.demand += demand
@@ -98,6 +98,7 @@ public final class CurrentValueRelay<Output>: Publisher {
           let value = self.parent?.currentValue
         else { return }
         self.receivedLastValue = true
+        self.demand -= 1
         self.demand += downstream.receive(value)
       }
     }
