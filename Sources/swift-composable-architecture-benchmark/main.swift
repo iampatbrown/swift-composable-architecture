@@ -3,9 +3,10 @@ import ComposableArchitecture
 
 Benchmark.main([
   defaultBenchmarkSuite,
-  dependenciesSuite,
-  effectSuite,
-  storeScopeSuite,
-  storeSuite,
-  viewStoreSuite,
+//  dependenciesSuite,
+//  effectSuite,
+//  storeScopeSuite,
+//  storeSuite,
+//  viewStoreSuite,
+  currentValueRelaySuite
 ])
