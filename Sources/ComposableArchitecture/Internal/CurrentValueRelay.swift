@@ -49,7 +49,7 @@ public final class CurrentValueRelay<Output>: Publisher {
   fileprivate final class Conduit: Subscription, Hashable {
     private var demand = Subscribers.Demand.none
     private var downstream: (any Subscriber<Output, Never>)?
-    private let lock: os_unfair_lock_t // TODO: Does this need to be recursive...
+    private let lock: os_unfair_lock_t
     private var parent: CurrentValueRelay?
     private var receivedLastValue = false
 
@@ -74,32 +74,64 @@ public final class CurrentValueRelay<Output>: Publisher {
     }
 
     func forward(_ value: Output) {
-      self.lock.sync {
-        guard
-          let downstream,
-          self.demand > 0
-        else {
+      guard let downstream else {
+        return
+      }
+
+      switch self.demand {
+      case .unlimited:
+        // When the demand is unlimited all values are forwarded
+        _ = downstream.receive(value)
+
+      case .none:
+        self.lock.sync {
           self.receivedLastValue = false
-          return
         }
-        self.receivedLastValue = true
-        self.demand -= 1
-        self.demand += downstream.receive(value)
+
+      default:
+        self.lock.sync {
+          self.receivedLastValue = true
+          self.demand -= 1
+        }
+        let moreDemand = downstream.receive(value)
+        self.lock.sync {
+          self.demand += moreDemand
+        }
       }
     }
 
     func request(_ demand: Subscribers.Demand) {
       precondition(demand > 0, "Demand must be greater than zero")
-      self.lock.sync {
-        guard let downstream else { return }
-        self.demand += demand
-        guard
-          !self.receivedLastValue,
-          let value = self.parent?.currentValue
-        else { return }
-        self.receivedLastValue = true
+      guard let downstream, self.demand != .unlimited else {
+        return
+      }
+
+      self.lock.lock()
+      self.demand += demand
+
+      guard
+        !self.receivedLastValue,
+        let value = parent?.currentValue
+      else {
+        self.lock.unlock()
+        return
+      }
+
+      self.receivedLastValue = true
+
+      switch self.demand {
+      case .unlimited:
+        self.lock.unlock()
+        // When the demand is unlimited all values are forwarded
+        _ = downstream.receive(value)
+
+      default:
         self.demand -= 1
-        self.demand += downstream.receive(value)
+        self.lock.unlock()
+        let moreDemand = downstream.receive(value)
+        self.lock.sync {
+          self.demand += moreDemand
+        }
       }
     }
 
