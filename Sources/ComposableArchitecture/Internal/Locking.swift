@@ -7,6 +7,16 @@ extension UnsafeMutablePointer where Pointee == os_unfair_lock_s {
     defer { os_unfair_lock_unlock(self) }
     return work()
   }
+
+  @inlinable
+  func lock() {
+    os_unfair_lock_lock(self)
+  }
+
+  @inlinable
+  func unlock() {
+    os_unfair_lock_unlock(self)
+  }
 }
 
 extension NSRecursiveLock {
