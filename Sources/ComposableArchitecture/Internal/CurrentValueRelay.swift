@@ -102,7 +102,7 @@ public final class CurrentValueRelay<Output>: Publisher {
 
     func request(_ demand: Subscribers.Demand) {
       precondition(demand > 0, "Demand must be greater than zero")
-      guard let downstream, self.demand != .unlimited else {
+      guard let downstream else {
         return
       }
 
