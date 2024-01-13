@@ -1,8 +1,8 @@
 import Combine
 import Foundation
 
-final class CurrentValueRelay<Output>: Publisher {
-  typealias Failure = Never
+public final class CurrentValueRelay<Output>: Publisher {
+  public typealias Failure = Never
 
   private var currentValue: Output
   private let lock: os_unfair_lock_t
@@ -13,7 +13,7 @@ final class CurrentValueRelay<Output>: Publisher {
     set { self.send(newValue) }
   }
 
-  init(_ value: Output) {
+  public init(_ value: Output) {
     self.currentValue = value
     self.lock = os_unfair_lock_t.allocate(capacity: 1)
     self.lock.initialize(to: os_unfair_lock())
@@ -24,7 +24,7 @@ final class CurrentValueRelay<Output>: Publisher {
     self.lock.deallocate()
   }
 
-  func receive(subscriber: some Subscriber<Output, Never>) {
+  public func receive(subscriber: some Subscriber<Output, Never>) {
     let subscription = Subscription(upstream: self, downstream: subscriber)
     self.lock.sync {
       self.subscriptions.append(subscription)
@@ -32,7 +32,7 @@ final class CurrentValueRelay<Output>: Publisher {
     subscriber.receive(subscription: subscription)
   }
 
-  func send(_ value: Output) {
+  public func send(_ value: Output) {
     self.currentValue = value
     for subscription in self.subscriptions {
       subscription.receive(value)
@@ -137,6 +137,61 @@ extension CurrentValueRelay {
 
     static func == (lhs: Subscription, rhs: Subscription) -> Bool {
       lhs === rhs
+    }
+  }
+}
+
+
+
+public final class CurrentValueRelayOld<Output>: Publisher {
+  public typealias Failure = Never
+
+  private var currentValue: Output
+  private var subscriptions: [Subscription<AnySubscriber<Output, Failure>>] = []
+
+  var value: Output {
+    get { self.currentValue }
+    set { self.send(newValue) }
+  }
+
+  public init(_ value: Output) {
+    self.currentValue = value
+  }
+
+  public func receive<S: Subscriber>(subscriber: S) where S.Input == Output, S.Failure == Never {
+    let subscription = Subscription(downstream: AnySubscriber(subscriber))
+    self.subscriptions.append(subscription)
+    subscriber.receive(subscription: subscription)
+    subscription.forwardValueToBuffer(self.currentValue)
+  }
+
+  public func send(_ value: Output) {
+    self.currentValue = value
+    for subscription in subscriptions {
+      subscription.forwardValueToBuffer(value)
+    }
+  }
+}
+
+extension CurrentValueRelayOld {
+  final class Subscription<Downstream: Subscriber>: Combine.Subscription
+  where Downstream.Input == Output, Downstream.Failure == Failure {
+    private var demandBuffer: DemandBuffer<Downstream>?
+
+    init(downstream: Downstream) {
+      self.demandBuffer = DemandBuffer(subscriber: downstream)
+    }
+
+    func forwardValueToBuffer(_ value: Output) {
+      _ = demandBuffer?.buffer(value: value)
+    }
+
+    func request(_ demand: Subscribers.Demand) {
+      _ = demandBuffer?.demand(demand)
+    }
+
+    func cancel() {
+      demandBuffer = nil
     }
   }
 }
