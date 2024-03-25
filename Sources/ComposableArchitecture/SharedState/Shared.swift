@@ -282,6 +282,58 @@ import Foundation
       }
     }
   }
+
+  extension Shared: Sequence
+  where Value: RandomAccessCollection & MutableCollection, Value.Index: Hashable {
+    public typealias Element = Shared<Value.Element>
+    public typealias Iterator = IndexingIterator<Shared<Value>>
+    public typealias SubSequence = Slice<Shared<Value>>
+  }
+
+  extension Shared: Collection
+  where Value: RandomAccessCollection & MutableCollection, Value.Index: Hashable {
+    public typealias Index = Value.Index
+    public typealias Indices = Value.Indices
+    public var startIndex: Shared<Value>.Index {
+      self.wrappedValue.startIndex
+    }
+
+    public var endIndex: Shared<Value>.Index {
+      self.wrappedValue.endIndex
+    }
+
+    public var indices: Value.Indices {
+      self.wrappedValue.indices
+    }
+
+    public func index(after i: Shared<Value>.Index) -> Shared<Value>.Index {
+      self.wrappedValue.index(after: i)
+    }
+
+    public func formIndex(after i: inout Shared<Value>.Index) {
+      self.wrappedValue.formIndex(after: &i)
+    }
+
+    public subscript(position: Shared<Value>.Index) -> Shared<Value>.Element {
+      let initialValue = self.wrappedValue[position]
+      return self[position, default: DefaultSubscript(initialValue)]
+    }
+  }
+
+  extension Shared: BidirectionalCollection
+  where Value: RandomAccessCollection & MutableCollection, Value.Index: Hashable {
+    public func index(before i: Shared<Value>.Index) -> Shared<Value>.Index {
+      self.wrappedValue.index(before: i)
+    }
+
+    public func formIndex(before i: inout Shared<Value>.Index) {
+      self.wrappedValue.formIndex(before: &i)
+    }
+  }
+
+  extension Shared: RandomAccessCollection
+  where Value: RandomAccessCollection & MutableCollection, Value.Index: Hashable {}
+
 #endif
 
 enum SharedLocals {
